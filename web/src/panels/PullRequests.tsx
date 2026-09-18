@@ -55,14 +55,16 @@ export function PullRequests({ snapshot, events, onSee, now, repos }: Props) {
         {list.map((pr) => {
           const ids = unread.get(pr.id) ?? [];
           return (
-            <button key={pr.id} role="listitem" className={`row click ${ids.length ? 'new' : ''}`} onClick={() => openItem(pr.url, ids, onSee)}>
-              <i className={ids.length ? 'newdot' : 'nodot'} />
-              {pr.authorAvatarUrl ? <img className="avatar" src={pr.authorAvatarUrl} alt="" /> : <span className="avatar" />}
-              <span className="meta mono" title={pr.repo}>{pr.repo.split('/')[1] ?? pr.repo} #{pr.number}</span>
-              <span className="title" title={pr.title}>{pr.title}</span>
-              <span className="meta">{pr.authorLogin} · {relativeTime(tab === 'all' ? pr.updatedAt : pr.createdAt, now)}</span>
-              <CiDot ci={pr.ci} />
-              <DecisionTag pr={pr} />
+            <button key={pr.id} role="listitem" className={`irow ${ids.length ? 'new' : ''}`} onClick={() => openItem(pr.url, ids, onSee)}>
+              <span className="irow-top">
+                <i className={ids.length ? 'newdot' : 'nodot'} />
+                {pr.authorAvatarUrl ? <img className="avatar sm" src={pr.authorAvatarUrl} alt="" /> : <span className="avatar sm" />}
+                <span className="meta mono" title={pr.repo}>{pr.repo.split('/')[1] ?? pr.repo} #{pr.number}</span>
+                <CiDot ci={pr.ci} />
+                <DecisionTag pr={pr} />
+                <span className="meta irow-right">{pr.authorLogin} · {relativeTime(tab === 'all' ? pr.updatedAt : pr.createdAt, now)}</span>
+              </span>
+              <span className="pr-title">{pr.title}</span>
             </button>
           );
         })}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { byNewestDate } from '../../../shared/larkDate';
 import type { Event, LarkRecord, LarkSnapshot, PublicConfig } from '../../../shared/types';
 import { attachmentUrl } from '../api';
+import { IconChevronDown, IconChevronRight } from '../icons';
 import { unreadItems } from '../state';
 import { TONE_TAG, categoryClass, feedbackStatusTone, groupFeedback, shortCategory, shortDate } from './larkFormat';
 import { RecordDialog } from './RecordDialog';
@@ -11,6 +12,8 @@ interface Props { snapshot: LarkSnapshot | null; events: Event[]; onSee: (ids: n
 
 export function Feedback({ snapshot, events, onSee, config }: Props) {
   const [open, setOpen] = useState<LarkRecord | null>(null);
+  /** Groups start open; a status the user folds stays folded for this session. */
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   if (!snapshot) return <div className="note">Waiting for the first Lark poll…</div>;
   const unread = unreadItems(events, 'feedback');
   if (snapshot.feedback.records.length === 0) return <div className="note">No feedback in your view.</div>;
@@ -19,10 +22,16 @@ export function Feedback({ snapshot, events, onSee, config }: Props) {
   return (
     <>
       <div className="rows" role="list">
-        {groups.map((g) => (
+        {groups.map((g) => {
+          const isCollapsed = !!collapsed[g.status];
+          return (
           <div key={g.status || '(none)'}>
-            <div className="group"><i className={`dot ${feedbackStatusTone(g.status)}`} />{g.status || 'No R&D status'} <span className="count">{g.records.length}</span></div>
-            {[...g.records].sort((a, b) => byNewestDate(a.fields.reportedDate, b.fields.reportedDate)).map((r) => {
+            <button className="group" onClick={() => setCollapsed((c) => ({ ...c, [g.status]: !isCollapsed }))} aria-expanded={!isCollapsed}>
+              {isCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
+              <i className={`dot ${feedbackStatusTone(g.status)}`} />{g.status || 'No R&D status'} <span className="count">{g.records.length}</span>
+              {isCollapsed && <span className="right">collapsed</span>}
+            </button>
+            {!isCollapsed && [...g.records].sort((a, b) => byNewestDate(a.fields.reportedDate, b.fields.reportedDate)).map((r) => {
               const f = r.fields;
               const ids = unread.get(r.recordId) ?? [];
               return (
@@ -33,7 +42,8 @@ export function Feedback({ snapshot, events, onSee, config }: Props) {
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </div>
       {open && <FeedbackDialog record={open} onClose={() => setOpen(null)} />}
     </>

@@ -237,6 +237,9 @@ a.btn.primary:hover { color: #fff; }
 .irow-right { margin-left: auto; }
 .irow-desc { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 0.875rem; line-height: 1.4; padding-left: 14px; overflow-wrap: anywhere; }
 .irow-meta { display: flex; flex-wrap: wrap; gap: 3px 14px; font-size: 0.75rem; color: var(--muted); padding-left: 14px; min-width: 0; }
+/* Pull request title on its own line, wrapping in full instead of being squeezed beside the meta. */
+.pr-title { font-size: 0.875rem; line-height: 1.4; padding-left: 14px; overflow-wrap: anywhere; }
+.avatar.sm { width: 16px; height: 16px; }
 .who { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; }
 .who svg { flex: none; color: var(--faint); }
 .dlg.record { width: 720px; }
