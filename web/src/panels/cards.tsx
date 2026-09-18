@@ -7,7 +7,6 @@ import type { PageContext } from '../pages/context';
 import { Builds } from './Builds';
 import { Feedback } from './Feedback';
 import { Issues } from './Issues';
-import { otherCounts } from './larkFormat';
 import { Panel } from './Panel';
 import type { PanelProps } from './Panel';
 import { PullRequests } from './PullRequests';
@@ -73,10 +72,9 @@ export function IssuesCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals, unread, showUnread, seeIds } = ctx;
   const lark = state.states.lark.snapshot;
   return (
-    <Panel id="issues" title="Issues" count={lark ? `${lark.issues.groups.reduce((n, g) => n + g.records.length, 0)} active${viewSuffix(state.config, 'issues')}` : undefined}
+    <Panel id="issues" title="Issues" count={lark ? `${lark.issues.groups.reduce((n, g) => n + g.records.length, 0)}${viewSuffix(state.config, 'issues')}` : undefined}
       unread={showUnread ? unread.issues.length : 0} state={state.states.lark} intervalSec={intervals.lark} now={now}
-      onRefresh={() => void refreshSource('lark')} onMarkAllSeen={() => seeIds(unread.issues.map((e) => e.id))}
-      headerRight={lark && state.config ? <span className="meta">{otherCounts(lark.issues.counts, state.config.showIssueStatuses)}</span> : null} {...chrome}>
+      onRefresh={() => void refreshSource('lark')} onMarkAllSeen={() => seeIds(unread.issues.map((e) => e.id))} {...chrome}>
       {state.config ? <Issues snapshot={lark} events={state.events} onSee={seeIds} config={state.config} /> : <div className="note">Loading…</div>}
     </Panel>
   );

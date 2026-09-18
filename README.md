@@ -45,7 +45,7 @@ Confirm the field names the dashboard maps (they are the column headers; the `st
 lark-cli base +field-list --base-token <baseToken> --table-id <tableId> --format json --as user
 ```
 
-Edit `fields.*` in each table block if a header differs from the example. `tasks.pendingLaunchStatus`, `tasks.collapsedStatuses` and `issues.showStatuses` must match the exact option text in Lark.
+Edit `fields.*` in each table block if a header differs from the example. `tasks.pendingLaunchStatus`, `tasks.collapsedStatuses` and `issues.showStatuses` must match the exact option text in Lark. The Issues panel lists every row its view returns; `issues.showStatuses` only decides which status groups come first, and names the open and checking counts on the attention strip.
 
 `tasks.createFormUrl` (optional) is the share link of a Lark Base form that adds a row to R&D Task (Base → the table → Form view → Share). When it is set, the Tasks panel shows a "Create task" button that opens the form in a new tab; remove the key to hide the button.
 

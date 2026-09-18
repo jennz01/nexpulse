@@ -1,5 +1,4 @@
 import { parseDays } from '../../../shared/attention';
-import { humanState } from '../../../shared/status';
 import type { LarkRecord } from '../../../shared/types';
 
 export function progressPercent(v: string): number | null {
@@ -45,13 +44,6 @@ export function shortDate(value: string): string {
   const ymd = /^\d{4}\/(\d{2})\/(\d{2})/.exec(value);
   if (ymd) return `${ymd[2]}/${ymd[1]}`;
   return value;
-}
-
-export function otherCounts(counts: Record<string, number>, shown: string[]): string {
-  return Object.entries(counts)
-    .filter(([status]) => !shown.includes(status))
-    .map(([status, n]) => `${humanState(status)} ${n}`)
-    .join(' · ');
 }
 
 /** First non-empty line of a multi-line cell, trimmed; '' for empty input. */

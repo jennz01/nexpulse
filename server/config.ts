@@ -35,6 +35,7 @@ const IssuesTable = z.object({
   viewId: id,
   /** Display name of the view above, recorded when it is picked in Settings; the poll only uses the id. */
   viewName: z.string().optional(),
+  /** Status groups to put first in the Issues panel, and the first two name the open and checking counts on the attention strip. Nothing is hidden: the panel lists whatever the view returns. */
   showStatuses: z.array(z.string()).default(['OPEN', 'CHECKING']),
   fields: IssueFields,
 });

@@ -24,7 +24,7 @@ export function Issues({ snapshot, events, onSee, config }: Props) {
   const [open, setOpen] = useState<LarkRecord | null>(null);
   if (!snapshot) return <div className="note">Waiting for the first Lark poll…</div>;
   const unread = unreadItems(events, 'issues');
-  if (snapshot.issues.groups.length === 0) return <div className="note">Nothing open. Every issue is resolved or closed.</div>;
+  if (snapshot.issues.groups.length === 0) return <div className="note">No issues in this view.</div>;
   const first = config.showIssueStatuses[0];
   const show = (r: LarkRecord, ids: number[]) => { if (ids.length) onSee(ids); setOpen(r); };
   return (

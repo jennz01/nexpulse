@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { ageClass, ageLabel, categoryClass, firstLine, otherCounts, priorityClass, progressPercent, shortCategory, shortDate, typeClass } from './larkFormat';
+import { ageClass, ageLabel, categoryClass, firstLine, priorityClass, progressPercent, shortCategory, shortDate, typeClass } from './larkFormat';
 
 test('progressPercent accepts fractions and percentages', () => {
   expect(progressPercent('0.92')).toBe(92);
@@ -42,9 +42,6 @@ test('shortDate handles both Lark date renderings', () => {
   expect(shortDate('yesterday')).toBe('yesterday');
 });
 
-test('otherCounts lists statuses that are not shown', () => {
-  expect(otherCounts({ OPEN: 4, CHECKING: 1, RESOLVED: 324, CLOSED: 127 }, ['OPEN', 'CHECKING'])).toBe('Resolved 324 · Closed 127');
-});
 
 test('firstLine keeps only the first non-empty line', () => {
   expect(firstLine('Inventory overselling\nSecond paragraph')).toBe('Inventory overselling');

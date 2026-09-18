@@ -157,27 +157,38 @@ export function buildLarkSnapshot(raw: Record<LarkTableKey, RawRecord[]>, cfg: L
 
   return {
     tasks: { groups: orderGroups(groupByStatus(tasks), t.tasks.groupOrder, t.tasks.collapsedStatuses), total: tasks.length },
-    issues: { groups: groupByStatus(issues, t.issues.showStatuses), counts },
+    // Every status the view returns, so the view's own filter decides what is listed; showStatuses only puts those groups first.
+    issues: { groups: orderGroups(groupByStatus(issues), t.issues.showStatuses, []), counts },
     feedback: { records: feedback },
   };
 }
 
-export function diffLark(prev: LarkSnapshot | null, next: LarkSnapshot, openStatus = 'OPEN'): NewEvent[] {
+/**
+ * More unfamiliar rows than one poll could plausibly bring means the ground moved: a different view picked in
+ * Settings, a filter widened in Lark, or an upgrade that changes what the snapshot holds. The new rows become the
+ * baseline silently instead of arriving as dozens of alerts.
+ */
+const MAX_NEW_PER_POLL = 25;
+const quietIfFlood = (events: NewEvent[]): NewEvent[] => (events.length > MAX_NEW_PER_POLL ? [] : events);
+
+export function diffLark(prev: LarkSnapshot | null, next: LarkSnapshot): NewEvent[] {
   if (!prev) return [];
-  const events: NewEvent[] = [];
+  // A row that enters the view is a new issue, whatever its status: the view's filter is what the person chose to watch.
   const known = new Set(prev.issues.groups.flatMap((g) => g.records.map((r) => r.recordId)));
-  for (const r of next.issues.groups.find((g) => g.status === openStatus)?.records ?? []) {
+  const issueEvents: NewEvent[] = [];
+  for (const r of next.issues.groups.flatMap((g) => g.records)) {
     if (known.has(r.recordId)) continue;
     const f = r.fields;
-    events.push({ source: 'lark', kind: 'issue.opened', priority: 'high', itemId: r.recordId, title: `New issue ${f.ticketId ?? r.recordId}: ${(f.description ?? '').slice(0, 120)}`, url: r.url });
+    issueEvents.push({ source: 'lark', kind: 'issue.opened', priority: 'high', itemId: r.recordId, title: `New issue ${f.ticketId ?? r.recordId}: ${(f.description ?? '').slice(0, 120)}`, url: r.url });
   }
+  const feedbackEvents: NewEvent[] = [];
   const knownFeedback = new Set(prev.feedback.records.map((r) => r.recordId));
   for (const r of next.feedback.records) {
     if (knownFeedback.has(r.recordId)) continue;
     const f = r.fields;
-    events.push({ source: 'lark', kind: 'feedback.new', priority: 'normal', itemId: r.recordId, title: `New feedback (${f.category ?? ''}): ${(f.text ?? '').slice(0, 120)}`, url: r.url });
+    feedbackEvents.push({ source: 'lark', kind: 'feedback.new', priority: 'normal', itemId: r.recordId, title: `New feedback (${f.category ?? ''}): ${(f.text ?? '').slice(0, 120)}`, url: r.url });
   }
-  return events;
+  return [...quietIfFlood(issueEvents), ...quietIfFlood(feedbackEvents)];
 }
 
 export const larkHint = (text: string): string | undefined =>

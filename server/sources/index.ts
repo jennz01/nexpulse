@@ -64,7 +64,7 @@ export async function buildGithubSource(loaded: LoadedConfig, log: (line: string
 export function buildLarkSource(loaded: LoadedConfig, log: (line: string) => void): RegisteredSource {
   const base = { run, fetch, log, now: Date.now };
   return {
-    source: { ...larkSource, diff: (p: LarkSnapshot | null, n: LarkSnapshot) => diffLark(p, n, loaded.config.lark.tables.issues.showStatuses[0] ?? 'OPEN') },
+    source: larkSource,
     ctx: { ...base, config: loaded.config.lark },
     intervalSec: loaded.config.polling.lark,
     disabled: loaded.problems.lark ?? null,

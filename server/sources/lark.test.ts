@@ -97,8 +97,9 @@ describe('buildLarkSnapshot', () => {
     expect(snap.tasks.total).toBe(3);
     expect(snap.tasks.groups[0]?.records[0]?.fields).toMatchObject({ title: '[FEATURE] MOBILE/SGPOS (RECEIPT) - Show item based discount on Receipt', priority: 'High', pic: 'Jenn, Syamil Aiman' });
   });
-  test('issues: only shown statuses become groups, counts cover every status', () => {
-    expect(snap.issues.groups.map((g) => g.status)).toEqual(['OPEN', 'CHECKING']);
+  test('issues: every status the view returns becomes a group, the configured ones first', () => {
+    expect(snap.issues.groups.map((g) => g.status).slice(0, 2)).toEqual(['OPEN', 'CHECKING']);
+    expect([...snap.issues.groups.map((g) => g.status)].sort()).toEqual(['CHECKING', 'CLOSED', 'OPEN', 'RESOLVED']);
     expect(snap.issues.counts).toEqual({ RESOLVED: 1, OPEN: 1, CHECKING: 1, CLOSED: 1 });
   });
   test('feedback is truncated to the configured limit', () => {
@@ -151,16 +152,10 @@ describe('diffLark', () => {
     expect(diffLark(s([], [r('a', 'CHECKING')], []), s([r('a', 'OPEN')], [], []))).toEqual([]);
   });
 
-  test('a new CHECKING record does not fire when the OPEN group is empty', () => {
+  test('a record entering the view fires whatever status group it lands in', () => {
     const prev: LarkSnapshot = { tasks: { groups: [], total: 0 }, issues: { groups: [{ status: 'CHECKING', records: [r('a', 'CHECKING')] }], counts: {} }, feedback: { records: [] } };
     const next: LarkSnapshot = { tasks: { groups: [], total: 0 }, issues: { groups: [{ status: 'CHECKING', records: [r('a', 'CHECKING'), r('b', 'CHECKING')] }], counts: {} }, feedback: { records: [] } };
-    expect(diffLark(prev, next)).toEqual([]);
-  });
-
-  test('the open status is configurable', () => {
-    const prev: LarkSnapshot = { tasks: { groups: [], total: 0 }, issues: { groups: [{ status: 'CHECKING', records: [] }, { status: 'OPEN', records: [r('a', 'OPEN')] }], counts: {} }, feedback: { records: [] } };
-    const next: LarkSnapshot = { tasks: { groups: [], total: 0 }, issues: { groups: [{ status: 'CHECKING', records: [] }, { status: 'OPEN', records: [r('a', 'OPEN'), r('b', 'OPEN')] }], counts: {} }, feedback: { records: [] } };
-    expect(diffLark(prev, next, 'OPEN').map((e) => e.kind)).toEqual(['issue.opened']);
+    expect(diffLark(prev, next).map((e) => e.itemId)).toEqual(['b']);
   });
 });
 
