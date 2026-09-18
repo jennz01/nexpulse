@@ -9,7 +9,7 @@
     "stores": 600
   },
   "github": {
-    "account": "jennsg"
+    "account": "your-github-login"
   },
   "codemagic": {
     "enabled": true

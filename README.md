@@ -4,6 +4,16 @@ One local page for the daily round: pull requests to review, Codemagic builds, L
 
 Design spec: `docs/superpowers/specs/2026-09-17-personal-dashboard-design.md`. The visual mockups live on a private design canvas linked from the spec; nothing in this repo depends on them at build time.
 
+**New here?** [SETUP.md](SETUP.md) walks through requirements, a one-shot install script and running at startup. In short:
+
+```powershell
+git clone https://github.com/jennz01/my-dashboard.git
+cd my-dashboard
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+The stack is Bun + Hono on the server and React + Vite on the web side (no Next.js); the sections below describe each setting in detail.
+
 ## Prerequisites
 
 - Bun 1.3+ (`bun --version`)
