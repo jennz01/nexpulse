@@ -1,9 +1,9 @@
 <#
 Manage the Windows scheduled task that starts the dashboard server hidden at logon.
 
-  bun run startup:install     register the task for the current user and start it now
+  bun run startup:install     register the task for the current user and start it now (-NoUpdate: never git pull at logon)
   bun run startup:status      task state, last result, whether the server is listening
-  bun run startup:restart     stop and start again (after `bun run build` or a config edit)
+  bun run startup:restart     pull the latest code and rebuild if anything changed, then stop and start again (-NoUpdate skips the pull)
   bun run startup:stop        stop the server (frees port 6600 for `bun run dev`)
   bun run startup:uninstall   stop and remove the task
 
@@ -12,13 +12,16 @@ Direct form: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\startup
 param(
   [Parameter(Position = 0)]
   [ValidateSet('install', 'uninstall', 'status', 'restart', 'stop')]
-  [string] $Verb = 'status'
+  [string] $Verb = 'status',
+  # install: register the task without the git pull at logon. restart: restart without pulling first.
+  [switch] $NoUpdate
 )
 $ErrorActionPreference = 'Stop'
 
 $TaskName = 'NexPulse'
 $root = Split-Path -Parent $PSScriptRoot
 $serveScript = Join-Path $PSScriptRoot 'serve.ps1'
+$updateScript = Join-Path $PSScriptRoot 'update.ps1'
 $logFile = Join-Path $root 'data\server.log'
 
 function Get-Port {
@@ -76,6 +79,13 @@ function Start-Task {
   else { Write-Warning "task started but nothing is listening on port $port yet; see $logFile" }
 }
 
+function Update-Checkout {
+  # The same pull / install / build the supervisor does at logon, run in the foreground so a restart by hand shows what changed.
+  $bun = (Get-Command bun.exe -ErrorAction SilentlyContinue).Source
+  if (-not $bun) { $bun = 'bun' }
+  & $updateScript -Bun $bun 2>&1 | ForEach-Object { Write-Host "$_" }
+}
+
 function Install-Task {
   $bun = (Get-Command bun.exe -ErrorAction SilentlyContinue).Source
   if (-not $bun) { throw 'bun.exe was not found on PATH. Install Bun (https://bun.sh) and open a new terminal.' }
@@ -86,6 +96,7 @@ function Install-Task {
   Stop-Task
   $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
   $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$serveScript`" -Bun `"$bun`""
+  if ($NoUpdate) { $arguments += ' -NoUpdate' }
   $action = New-ScheduledTaskAction -Execute $powershell -Argument $arguments -WorkingDirectory $root
 
   $user = "$env:USERDOMAIN\$env:USERNAME"
@@ -139,6 +150,6 @@ switch ($Verb) {
   'install'   { Install-Task }
   'uninstall' { Uninstall-Task }
   'status'    { Show-Status }
-  'restart'   { Stop-Task; Start-Task }
+  'restart'   { if (-not $NoUpdate) { Update-Checkout }; Stop-Task; Start-Task }
   'stop'      { if (Get-Task) { Stop-Task } else { Write-Host "Task '$TaskName' is not installed." } }
 }

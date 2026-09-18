@@ -4,12 +4,15 @@ runs this hidden at logon; you can also run it by hand from the repo root:
 
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\serve.ps1
 
-It starts `bun server/index.ts`, appends everything the server prints to data\server.log, and starts it
-again if it exits (5 s after a crash, doubling up to 60 s while it keeps failing fast).
+It first runs scripts\update.ps1 (git pull --ff-only, then bun install and bun run build when anything changed;
+skipped over local changes, never fatal), then starts `bun server/index.ts`, appends everything the server prints
+to data\server.log, and starts it again if it exits (5 s after a crash, doubling up to 60 s while it keeps failing fast).
 #>
 param(
   # Absolute path to bun.exe. startup.ps1 bakes it in because the task's PATH may differ from your shell's.
-  [string] $Bun = 'bun'
+  [string] $Bun = 'bun',
+  # Start without pulling the latest code first (`bun run startup:install -NoUpdate` bakes this into the task).
+  [switch] $NoUpdate
 )
 # Native stderr lines arrive as error records under 2>&1 in PowerShell 5.1; Continue keeps them flowing into the log.
 $ErrorActionPreference = 'Continue'
@@ -29,6 +32,12 @@ function Write-Log([string] $line) {
 }
 
 Write-Log "started (pid $PID) in $root"
+if ($NoUpdate) {
+  Write-Log 'auto-update is off (-NoUpdate)'
+} else {
+  # Pull the latest code before the first start, so a PC that only ever signs in stays current. update.ps1 never throws.
+  & (Join-Path $PSScriptRoot 'update.ps1') -Bun $Bun 2>&1 | ForEach-Object { Write-Log "$_" }
+}
 if (-not (Test-Path (Join-Path $root 'web\dist\index.html'))) {
   Write-Log 'web\dist\index.html is missing: run `bun run build`, then `bun run startup:restart`'
 }
