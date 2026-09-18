@@ -20,14 +20,14 @@ const snapshot: LarkSnapshot = {
 };
 const events: Event[] = [{ id: 7, source: 'lark', kind: 'issue.opened', priority: 'high', itemId: 'r1', title: 'New issue', url: 'https://lark/r1', createdAt: 0, seen: false }];
 
-test('sorts oldest first, highlights the unread row, and a click marks it seen and opens the detail dialog', () => {
+test('sorts newest first, highlights the unread row, and a click marks it seen and opens the detail dialog', () => {
   const onSee = mock(() => {});
   render(<Issues snapshot={snapshot} events={events} onSee={onSee} config={config} />);
   const rows = screen.getAllByRole('listitem');
-  expect(rows[0]?.textContent).toContain('#G002');
-  expect(rows[0]?.className).not.toContain('new');
-  expect(rows[1]?.className).toContain('new');
-  fireEvent.click(rows[1]!);
+  expect(rows[0]?.textContent).toContain('#G001');
+  expect(rows[0]?.className).toContain('new');
+  expect(rows[1]?.className).not.toContain('new');
+  fireEvent.click(rows[0]!);
   expect(onSee).toHaveBeenCalledWith([7]);
   const dialog = screen.getByRole('dialog');
   expect(dialog.textContent).toContain('Overselling');

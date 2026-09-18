@@ -9,7 +9,17 @@ import { RecordRow } from './RecordRow';
 
 interface Props { snapshot: LarkSnapshot | null; events: Event[]; onSee: (ids: number[]) => void; config: PublicConfig }
 
-const byOldest = (a: LarkRecord, b: LarkRecord) => (parseDays(b.fields.hoursSince ?? '') ?? 0) - (parseDays(a.fields.hoursSince ?? '') ?? 0);
+/** Days since the report. "Hours Since" is Lark's formula off the reported date, so it is preferred; the date column (YYYY/MM/DD HH:mm as Lark renders it) is the fallback when the formula is absent. */
+const ageDays = (r: LarkRecord): number => {
+  const days = parseDays(r.fields.hoursSince ?? '');
+  if (days != null) return days;
+  const m = /^(\d{4})\/(\d{2})\/(\d{2})(?: (\d{2}):(\d{2}))?/.exec(r.fields.reportedDate ?? '');
+  if (!m) return Number.POSITIVE_INFINITY;
+  const reported = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] ?? 0), Number(m[5] ?? 0));
+  return (Date.now() - reported) / 86_400_000;
+};
+/** Newest report on top within each status group. */
+const byNewest = (a: LarkRecord, b: LarkRecord) => ageDays(a) - ageDays(b);
 
 export function Issues({ snapshot, events, onSee, config }: Props) {
   const [open, setOpen] = useState<LarkRecord | null>(null);
@@ -24,7 +34,7 @@ export function Issues({ snapshot, events, onSee, config }: Props) {
         {snapshot.issues.groups.map((g) => (
           <div key={g.status}>
             <div className="group"><i className={`dot ${g.status === first ? 'red' : 'amber'}`} />{g.status} <span className="count">{g.records.length}</span></div>
-            {[...g.records].sort(byOldest).map((r) => {
+            {[...g.records].sort(byNewest).map((r) => {
               const f = r.fields;
               const ids = unread.get(r.recordId) ?? [];
               const age = f.hoursSince ?? '';
