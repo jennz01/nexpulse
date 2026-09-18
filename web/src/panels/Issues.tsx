@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { parseDays } from '../../../shared/attention';
+import { larkDateMs } from '../../../shared/larkDate';
 import type { Event, LarkRecord, LarkSnapshot, PublicConfig } from '../../../shared/types';
 import { attachmentUrl } from '../api';
 import { unreadItems } from '../state';
@@ -9,14 +10,12 @@ import { RecordRow } from './RecordRow';
 
 interface Props { snapshot: LarkSnapshot | null; events: Event[]; onSee: (ids: number[]) => void; config: PublicConfig }
 
-/** Days since the report. "Hours Since" is Lark's formula off the reported date, so it is preferred; the date column (YYYY/MM/DD HH:mm as Lark renders it) is the fallback when the formula is absent. */
+/** Days since the report. "Hours Since" is Lark's formula off the reported date, so it is preferred; the date column is the fallback when the formula is absent. */
 const ageDays = (r: LarkRecord): number => {
   const days = parseDays(r.fields.hoursSince ?? '');
   if (days != null) return days;
-  const m = /^(\d{4})\/(\d{2})\/(\d{2})(?: (\d{2}):(\d{2}))?/.exec(r.fields.reportedDate ?? '');
-  if (!m) return Number.POSITIVE_INFINITY;
-  const reported = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4] ?? 0), Number(m[5] ?? 0));
-  return (Date.now() - reported) / 86_400_000;
+  const reported = larkDateMs(r.fields.reportedDate);
+  return reported == null ? Number.POSITIVE_INFINITY : (Date.now() - reported) / 86_400_000;
 };
 /** Newest report on top within each status group. */
 const byNewest = (a: LarkRecord, b: LarkRecord) => ageDays(a) - ageDays(b);

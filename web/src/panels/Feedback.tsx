@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { byNewestDate } from '../../../shared/larkDate';
 import type { Event, LarkRecord, LarkSnapshot, PublicConfig } from '../../../shared/types';
 import { attachmentUrl } from '../api';
 import { unreadItems } from '../state';
@@ -20,8 +21,8 @@ export function Feedback({ snapshot, events, onSee, config }: Props) {
       <div className="rows" role="list">
         {groups.map((g) => (
           <div key={g.status || '(none)'}>
-            {g.status && <div className="group"><i className={`dot ${feedbackStatusTone(g.status)}`} />{g.status} <span className="count">{g.records.length}</span></div>}
-            {g.records.map((r) => {
+            <div className="group"><i className={`dot ${feedbackStatusTone(g.status)}`} />{g.status || 'No R&D status'} <span className="count">{g.records.length}</span></div>
+            {[...g.records].sort((a, b) => byNewestDate(a.fields.reportedDate, b.fields.reportedDate)).map((r) => {
               const f = r.fields;
               const ids = unread.get(r.recordId) ?? [];
               return (

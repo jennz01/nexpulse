@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import type { PanelId } from '../../../shared/types';
+import type { PanelId, PublicConfig } from '../../../shared/types';
 import { refreshSource } from '../api';
 import { IconPlay, IconPlus } from '../icons';
 import type { PageContext } from '../pages/context';
@@ -14,6 +14,12 @@ import { PullRequests } from './PullRequests';
 import { StartBuildDialog } from './StartBuildDialog';
 import { Stores } from './Stores';
 import { Tasks } from './Tasks';
+
+/** " · <view name>" for a Lark panel's header, so each card says which view of the Base it is showing (Settings → Lark Base). */
+const viewSuffix = (config: PublicConfig | null, table: 'tasks' | 'issues' | 'feedback'): string => {
+  const name = config?.larkBase.tables[table].viewName;
+  return name ? ` · ${name}` : '';
+};
 
 /** What the host adds to a panel: grid spans and tint from the Home layout, and the customize-mode chrome. */
 export type CardChrome = Partial<Pick<PanelProps, 'tint' | 'leading' | 'tools' | 'fill' | 'extra' | 'innerRef' | 'className' | 'style' | 'sectionProps'>>;
@@ -53,7 +59,7 @@ export function TasksCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals } = ctx;
   const lark = state.states.lark.snapshot;
   return (
-    <Panel id="tasks" title="Tasks" count={lark ? `${lark.tasks.total}${state.config?.larkBase.tables.tasks.viewName ? ` · ${state.config.larkBase.tables.tasks.viewName}` : ''}` : undefined} unread={0} state={state.states.lark} intervalSec={intervals.lark} now={now}
+    <Panel id="tasks" title="Tasks" count={lark ? `${lark.tasks.total}${viewSuffix(state.config, 'tasks')}` : undefined} unread={0} state={state.states.lark} intervalSec={intervals.lark} now={now}
       onRefresh={() => void refreshSource('lark')}
       headerRight={state.config?.taskFormUrl ? (
         <a className="btn primary" href={state.config.taskFormUrl} target="_blank" rel="noreferrer" title="Open the R&D Task form in Lark"><IconPlus size={12} />Create task</a>
@@ -67,7 +73,7 @@ export function IssuesCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals, unread, showUnread, seeIds } = ctx;
   const lark = state.states.lark.snapshot;
   return (
-    <Panel id="issues" title="Issues" count={lark ? `${lark.issues.groups.reduce((n, g) => n + g.records.length, 0)} active` : undefined}
+    <Panel id="issues" title="Issues" count={lark ? `${lark.issues.groups.reduce((n, g) => n + g.records.length, 0)} active${viewSuffix(state.config, 'issues')}` : undefined}
       unread={showUnread ? unread.issues.length : 0} state={state.states.lark} intervalSec={intervals.lark} now={now}
       onRefresh={() => void refreshSource('lark')} onMarkAllSeen={() => seeIds(unread.issues.map((e) => e.id))}
       headerRight={lark && state.config ? <span className="meta">{otherCounts(lark.issues.counts, state.config.showIssueStatuses)}</span> : null} {...chrome}>
@@ -80,7 +86,7 @@ export function FeedbackCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals, unread, showUnread, seeIds } = ctx;
   const lark = state.states.lark.snapshot;
   return (
-    <Panel id="feedback" title="Merchant Feedback" count={lark ? `newest ${lark.feedback.records.length}` : undefined}
+    <Panel id="feedback" title="Merchant Feedback" count={lark ? `newest ${lark.feedback.records.length}${viewSuffix(state.config, 'feedback')}` : undefined}
       unread={showUnread ? unread.feedback.length : 0} state={state.states.lark} intervalSec={intervals.lark} now={now}
       onRefresh={() => void refreshSource('lark')} onMarkAllSeen={() => seeIds(unread.feedback.map((e) => e.id))} {...chrome}>
       {state.config ? <Feedback snapshot={lark} events={state.events} onSee={seeIds} config={state.config} /> : <div className="note">Loading…</div>}

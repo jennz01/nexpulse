@@ -1,4 +1,5 @@
 import type { LarkAttachment, LarkGroup, LarkRecord, LarkSnapshot, LarkTableInfo, LarkViewInfo, NewEvent } from '../../shared/types';
+import { byNewestDate } from '../../shared/larkDate';
 import type { LarkConfig, LarkTableKey } from '../config';
 import { cliMessage } from '../proc';
 import { SourceError } from './types';
@@ -148,7 +149,11 @@ export function buildLarkSnapshot(raw: Record<LarkTableKey, RawRecord[]>, cfg: L
     const s = r.fields.status ?? '';
     counts[s] = (counts[s] ?? 0) + 1;
   }
-  const feedback = raw.feedback.slice(0, t.feedback.limit).map((r) => mapRecord(r, t.feedback.fields, url('feedback', r.record_id)));
+  // Newest first, then cut to the limit: the panel promises "newest N", and the chosen view may be sorted any way at all.
+  const feedback = raw.feedback
+    .map((r) => mapRecord(r, t.feedback.fields, url('feedback', r.record_id)))
+    .sort((a, b) => byNewestDate(a.fields.reportedDate, b.fields.reportedDate))
+    .slice(0, t.feedback.limit);
 
   return {
     tasks: { groups: orderGroups(groupByStatus(tasks), t.tasks.groupOrder, t.tasks.collapsedStatuses), total: tasks.length },
