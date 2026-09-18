@@ -36,7 +36,8 @@ const { sources, codemagic } = await buildSources(loaded, {
 const disabled: Partial<Record<SourceId, string>> = { ...loaded.problems };
 for (const s of sources) if (s.disabled) disabled[s.source.id] = s.disabled;
 
-const scheduler = new Scheduler(sources, store, (msg) => void hub.broadcast(msg), { log });
+// Every update carries the current public config, so the page applies data and the settings it was fetched under together.
+const scheduler = new Scheduler(sources, store, (msg) => void hub.broadcast({ ...msg, config: pub }), { log });
 const devEmit = process.env.DASHBOARD_DEV === '1';
 if (devEmit) log('DASHBOARD_DEV=1: POST /api/dev/emit is enabled');
 const port = loaded.config.server.port;
@@ -47,12 +48,12 @@ let attachments = new LarkAttachments(loaded.config.lark, resolve(ROOT, 'data', 
 // Settings page edits: rewrite the config, then swap the two store sources in place and poll them at once.
 const accounts = new StoreAccounts({
   rootDir: ROOT,
-  onChange: (fresh) => {
+  onChange: async (fresh) => {
     for (const reg of buildStoreSources(fresh, log)) {
       const id = reg.source.id;
       if (reg.disabled) disabled[id] = reg.disabled;
       else delete disabled[id];
-      scheduler.replace(reg);
+      await scheduler.replaceAndPoll(reg);
       log(`source ${id}: ${reg.disabled ? `disabled (${reg.disabled})` : 'reconfigured from Settings, polling now'}`);
     }
     Object.assign(pub, publicConfig(fresh.config));
@@ -86,10 +87,10 @@ const auth = new AuthManager({
 // Codemagic token from the Settings page: tested, written to config/secrets/.env, then the source and its actions are swapped in place.
 const envPath = resolve(loaded.configDir, 'secrets', '.env');
 const codemagicRef: { current: CodemagicActions | undefined } = { current: codemagic };
-const applyCodemagicToken = (token: string | null): void => {
+const applyCodemagicToken = async (token: string | null): Promise<void> => {
   loaded.secrets.CODEMAGIC_API_TOKEN = token ?? undefined;
   const problem = !loaded.config.codemagic.enabled ? 'disabled in config' : !token ? 'CODEMAGIC_API_TOKEN missing from config/secrets/.env' : null;
-  scheduler.replace({ source: codemagicSource, ctx: { run, fetch, log, now: Date.now, config: { token: token ?? '' } }, intervalSec: loaded.config.polling.codemagic, disabled: problem });
+  await scheduler.replaceAndPoll({ source: codemagicSource, ctx: { run, fetch, log, now: Date.now, config: { token: token ?? '' } }, intervalSec: loaded.config.polling.codemagic, disabled: problem });
   if (problem) { disabled.codemagic = problem; codemagicRef.current = undefined; }
   else { delete disabled.codemagic; codemagicRef.current = createCodemagicActions(token!, () => store.getSnapshot<CodemagicSnapshot>('codemagic')?.data ?? null); }
   log(`codemagic: ${problem ? `disabled (${problem})` : 'token saved from Settings, polling now'}`);
@@ -104,12 +105,12 @@ const codemagicToken: CodemagicTokenActions = {
     const clean = validateToken(token);
     await testCodemagicToken(clean);
     writeEnvValue(envPath, 'CODEMAGIC_API_TOKEN', clean);
-    applyCodemagicToken(clean);
+    await applyCodemagicToken(clean);
     return codemagicToken.status();
   },
   remove: async () => {
     writeEnvValue(envPath, 'CODEMAGIC_API_TOKEN', null);
-    applyCodemagicToken(null);
+    await applyCodemagicToken(null);
     return codemagicToken.status();
   },
 };
@@ -118,7 +119,7 @@ const rebuildGithub = async (why: string): Promise<void> => {
   const reg = await buildGithubSource(loaded, log);
   if (reg.disabled) disabled.github = reg.disabled;
   else delete disabled.github;
-  scheduler.replace(reg);
+  await scheduler.replaceAndPoll(reg);
   log(`github: ${why}${reg.disabled ? `; still disabled (${reg.disabled})` : ', polling now'}`);
 };
 const github: GithubActions = {
@@ -171,7 +172,7 @@ const app = createApp({
       const reg = buildLarkSource(loaded, log);
       if (reg.disabled) disabled.lark = reg.disabled;
       else delete disabled.lark;
-      scheduler.replace(reg);
+      await scheduler.replaceAndPoll(reg);
       const what = [input.baseToken ? `base ${input.domain}` : null, input.tables ? `${Object.keys(input.tables).length} table(s)` : null].filter(Boolean).join(' and ');
       log(`lark: ${what} set from Settings${reg.disabled ? `; still disabled (${reg.disabled})` : ', polling now'}`);
       return pub.larkBase;

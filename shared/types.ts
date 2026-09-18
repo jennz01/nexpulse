@@ -238,6 +238,8 @@ export interface SseMessage {
   source: SourceId;
   state: SourceState;
   events: Event[];
+  /** The config in force when this update was sent. It travels with the data so a settings change cannot leave the page showing new rows under the old view's name. */
+  config?: PublicConfig;
 }
 
 // ---- Authorization: the gh and lark-cli sessions the sources depend on ----

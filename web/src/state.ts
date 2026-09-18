@@ -33,10 +33,11 @@ export function reducer(state: DashboardState, action: Action): DashboardState {
     case 'loaded':
       return { ...state, loaded: true, states: action.payload.states, events: action.payload.events, config: action.payload.config, error: null };
     case 'sse': {
-      const { source, state: incoming, events } = action.payload;
+      const { source, state: incoming, events, config } = action.payload;
       const prev = state.states[source];
       return {
         ...state,
+        config: config ?? state.config,
         lastMessageAt: action.now,
         states: { ...state.states, [source]: { ...incoming, disabled: prev.disabled } } as SourceStates,
         events: mergeEvents(state.events, events),

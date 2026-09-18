@@ -301,16 +301,16 @@ export function createApp(deps: AppDeps): Hono {
     const body = (await c.req.json().catch(() => null)) as StoreAccountInput | null;
     if (!body || typeof body !== 'object') return c.json({ error: 'JSON body required' }, 400);
     try {
-      return c.json(deps.accounts.upsert(body));
+      return c.json(await deps.accounts.upsert(body));
     } catch (err) {
       return accountError(c, err);
     }
   });
 
-  app.delete('/api/stores/accounts/:name', (c) => {
+  app.delete('/api/stores/accounts/:name', async (c) => {
     if (!deps.accounts) return c.json({ error: 'account management is not available in this process' }, 501);
     try {
-      return c.json(deps.accounts.remove(decodeURIComponent(c.req.param('name'))));
+      return c.json(await deps.accounts.remove(decodeURIComponent(c.req.param('name'))));
     } catch (err) {
       return accountError(c, err);
     }

@@ -68,7 +68,7 @@ function cleanApps(apps: unknown): StorePlayAppInput[] {
 export interface AccountsDeps {
   rootDir: string;
   /** Runs after the config file changed; the server swaps the store sources. */
-  onChange: (loaded: LoadedConfig) => void;
+  onChange: (loaded: LoadedConfig) => void | Promise<void>;
   fetchImpl?: typeof fetch;
 }
 
@@ -93,7 +93,7 @@ export class StoreAccounts {
   }
 
   /** Validate, write key files, rewrite the accounts section and reload. Returns the new list. */
-  upsert(input: StoreAccountInput): StoreAccountView[] {
+  async upsert(input: StoreAccountInput): Promise<StoreAccountView[]> {
     const accounts = this.current();
     const name = String(input.name ?? '').trim();
     if (!name || name.length > 60) throw new AccountInputError('Account name is required (up to 60 characters).');
@@ -141,17 +141,17 @@ export class StoreAccounts {
     const next = existing ? accounts.map((a) => (a === existing ? entry : a)) : [...accounts, entry];
     const raw = this.withAccounts(next); // validates before anything touches disk
     for (const w of writes) this.writeSecret(w.path, w.text);
-    this.commit(raw);
+    await this.commit(raw);
     if (existing) this.deleteOrphans(existing, next);
     return this.list();
   }
 
-  remove(name: string): StoreAccountView[] {
+  async remove(name: string): Promise<StoreAccountView[]> {
     const accounts = this.current();
     const target = accounts.find((a) => a.name === name);
     if (!target) throw new AccountInputError(`Account "${name}" not found.`);
     const next = accounts.filter((a) => a !== target);
-    this.commit(this.withAccounts(next));
+    await this.commit(this.withAccounts(next));
     this.deleteOrphans(target, next);
     return this.list();
   }
@@ -240,11 +240,11 @@ export class StoreAccounts {
     return raw;
   }
 
-  private commit(raw: Record<string, unknown>): void {
+  private async commit(raw: Record<string, unknown>): Promise<void> {
     const tmp = `${this.configPath}.tmp`;
     writeFileSync(tmp, `${JSON.stringify(raw, null, 2)}\n`, 'utf8');
     renameSync(tmp, this.configPath);
-    this.deps.onChange(loadConfig(this.deps.rootDir));
+    await this.deps.onChange(loadConfig(this.deps.rootDir));
   }
 
   private writeSecret(path: string, text: string): void {

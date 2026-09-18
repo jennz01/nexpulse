@@ -81,8 +81,25 @@ export class Scheduler {
     await this.tick(id);
   }
 
+  /**
+   * Swap a registration and wait for its first poll, so a settings save only answers once the stored data matches
+   * the config it was saved with. Without this the page reloads in between and shows the new view's name over the
+   * old view's rows until the poll lands. Bounded, because a save must not hang on a slow source.
+   */
+  async replaceAndPoll(reg: RegisteredSource, timeoutMs = 25_000): Promise<void> {
+    this.replace(reg, false);
+    if (reg.disabled) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const bound = new Promise<void>((resolve) => { timer = setTimeout(resolve, timeoutMs); });
+    try {
+      await Promise.race([this.refresh(reg.source.id), bound]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
   /** Swap a source's registration (new config, or switched on/off) and, when polling, fetch it right away. */
-  replace(reg: RegisteredSource): void {
+  replace(reg: RegisteredSource, poll = true): void {
     const id = reg.source.id;
     const i = this.sources.findIndex((r) => r.source.id === id);
     if (i === -1) this.sources.push(reg);
@@ -92,7 +109,7 @@ export class Scheduler {
     this.timers.delete(id);
     this.nextRunAt.delete(id);
     this.failures.set(id, 0);
-    if (!reg.disabled) this.schedule(id, 0);
+    if (poll && !reg.disabled) this.schedule(id, 0);
   }
 
   async tick(id: SourceId): Promise<void> {
