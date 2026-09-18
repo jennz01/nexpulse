@@ -40,6 +40,13 @@ function Run([string] $exe, [string[]] $arguments) {
   & $exe @arguments
   if ($LASTEXITCODE -ne 0) { throw "$exe $($arguments -join ' ') exited with code $LASTEXITCODE" }
 }
+function ExitCodeOf([string] $commandLine) {
+  # Exit code of a native command with its output discarded. The redirection happens in cmd.exe on purpose:
+  # in Windows PowerShell, `2>$null` on a native command turns each stderr line into an ErrorRecord, which
+  # $ErrorActionPreference = 'Stop' then treats as fatal (npm's lark-cli.ps1 shim trips this when not signed in).
+  & cmd.exe /d /c "$commandLine >nul 2>&1"
+  return $LASTEXITCODE
+}
 function Ensure-Tool([string] $cmd, [string] $wingetId, [string] $label, [string] $manual) {
   if (Have $cmd) { Ok "$label found: $((Get-Command $cmd).Source)"; return }
   if (-not (Have 'winget')) { throw "$label is not installed and winget is unavailable. Install it from $manual and run this script again." }
@@ -98,8 +105,7 @@ if ($NoLogin) {
   Note 'Sign in later with `gh auth login` and `lark-cli auth login`, then put your GitHub login in github.account of the config (or use Settings, Connections in the dashboard). Until then the Pull Requests and Lark panels stay off.'
 } else {
   Step 'Logins'
-  & gh auth status 2>$null | Out-Null
-  if ($LASTEXITCODE -ne 0) {
+  if ((ExitCodeOf 'gh auth status') -ne 0) {
     Note 'GitHub CLI is not signed in; a browser window will open.'
     Run 'gh' @('auth', 'login', '--hostname', 'github.com', '--git-protocol', 'https', '--web')
   }
@@ -113,8 +119,7 @@ if ($NoLogin) {
   } elseif ($config.github.account -ne $login) {
     Note "The config tracks GitHub account '$($config.github.account)' but gh is signed in as '$login'. Match them (edit the config or run gh auth switch) or the Pull Requests panel stays off."
   }
-  & lark-cli auth status 2>$null | Out-Null
-  if ($LASTEXITCODE -ne 0) {
+  if ((ExitCodeOf 'lark-cli auth status') -ne 0) {
     Note 'lark-cli is not signed in; a browser window will open.'
     Run 'lark-cli' @('auth', 'login')
   }
