@@ -138,19 +138,24 @@ export function validateSources(
   return problems;
 }
 
+/** A UTF-8 text file minus the byte order mark that Windows PowerShell 5.1 (`-Encoding utf8`) and some editors put first; JSON.parse rejects it. */
+export function readText(path: string): string {
+  return readFileSync(path, 'utf8').replace(/^\uFEFF/, '');
+}
+
 export function loadConfig(rootDir: string): LoadedConfig {
   const configDir = resolve(rootDir, 'config');
   const configPath = resolve(configDir, 'dashboard.config.json');
   if (!existsSync(configPath)) {
     throw new Error(`Missing ${configPath}. Copy config/dashboard.config.example.json to config/dashboard.config.json and fill it in.`);
   }
-  const parsed = ConfigSchema.safeParse(JSON.parse(readFileSync(configPath, 'utf8')));
+  const parsed = ConfigSchema.safeParse(JSON.parse(readText(configPath)));
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.') || '(root)'}: ${i.message}`);
     throw new Error(`Invalid dashboard.config.json:\n${lines.join('\n')}`);
   }
   const envPath = resolve(configDir, 'secrets', '.env');
-  const secrets: Secrets = existsSync(envPath) ? parseEnvFile(readFileSync(envPath, 'utf8')) : {};
+  const secrets: Secrets = existsSync(envPath) ? parseEnvFile(readText(envPath)) : {};
   return { config: parsed.data, secrets, problems: validateSources(parsed.data, secrets, configDir), configDir };
 }
 

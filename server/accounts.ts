@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { StoreAccountInput, StoreAccountView, StorePlayAppInput, StoreTestResult } from '../shared/types';
-import { ConfigSchema, loadConfig } from './config';
+import { ConfigSchema, loadConfig, readText } from './config';
 import type { LoadedConfig, StoreAccountConfig } from './config';
 import { AscTokenCache, ascJson, parseAscApps } from './sources/appstore';
 import type { AppStoreAccount } from './sources/appstore';
@@ -167,7 +167,7 @@ export class StoreAccounts {
       try {
         const pem = input.appstore.keyPem?.trim()
           ? validateP8(input.appstore.keyPem)
-          : existing?.appstore ? readFileSync(resolve(this.configDir, existing.appstore.keyFile), 'utf8') : null;
+          : existing?.appstore ? readText(resolve(this.configDir, existing.appstore.keyFile)) : null;
         if (!pem) throw new AccountInputError('Choose the .p8 file first.');
         const acc: AppStoreAccount = { name, issuerId: String(input.appstore.issuerId ?? '').trim(), keyId: String(input.appstore.keyId ?? '').trim(), privateKeyPem: pem };
         const token = await new AscTokenCache().token(acc);
@@ -183,7 +183,7 @@ export class StoreAccounts {
       try {
         const text = input.play.serviceAccountJson?.trim()
           ? input.play.serviceAccountJson
-          : existing?.play ? readFileSync(resolve(this.configDir, existing.play.serviceAccountFile), 'utf8') : null;
+          : existing?.play ? readText(resolve(this.configDir, existing.play.serviceAccountFile)) : null;
         if (!text) throw new AccountInputError('Choose the service account JSON first.');
         const sa = validateServiceAccount(text);
         const acc: PlayAccount = { name, developerId: String(input.play.developerId ?? ''), clientEmail: sa.client_email, privateKeyPem: sa.private_key, tokenUri: sa.token_uri, apps: [] };
@@ -206,7 +206,7 @@ export class StoreAccounts {
   // ---- internals ----
 
   private readRaw(): Record<string, unknown> {
-    return JSON.parse(readFileSync(this.configPath, 'utf8')) as Record<string, unknown>;
+    return JSON.parse(readText(this.configPath)) as Record<string, unknown>;
   }
 
   private current(): StoreAccountConfig[] {
@@ -220,7 +220,7 @@ export class StoreAccounts {
       const p = resolve(this.configDir, a.play.serviceAccountFile);
       filePresent = existsSync(p);
       if (filePresent) {
-        try { clientEmail = validateServiceAccount(readFileSync(p, 'utf8')).client_email; } catch { clientEmail = null; }
+        try { clientEmail = validateServiceAccount(readText(p)).client_email; } catch { clientEmail = null; }
       }
     }
     return {

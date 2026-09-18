@@ -1,6 +1,6 @@
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { renameSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ConfigSchema, loadConfig } from './config';
+import { ConfigSchema, loadConfig, readText } from './config';
 import type { LoadedConfig } from './config';
 
 export class ConfigInputError extends Error {}
@@ -11,7 +11,7 @@ export class ConfigInputError extends Error {}
  */
 export function editConfig(rootDir: string, mutate: (raw: Record<string, unknown>) => void): LoadedConfig {
   const path = resolve(rootDir, 'config', 'dashboard.config.json');
-  const raw = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+  const raw = JSON.parse(readText(path)) as Record<string, unknown>;
   mutate(raw);
   const parsed = ConfigSchema.safeParse(raw);
   if (!parsed.success) throw new ConfigInputError(`Config would become invalid: ${parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`);

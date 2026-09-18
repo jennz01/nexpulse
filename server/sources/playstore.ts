@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readText } from '../config';
 import { resolve } from 'node:path';
 import { humanState } from '../../shared/status';
 import type { NewEvent, PlayApp, PlayRelease, PlaySnapshot } from '../../shared/types';
@@ -128,7 +128,7 @@ export const playstoreSource: Source<PlaySnapshot, PlayConfig> = {
 export function loadPlayAccounts(
   accounts: StoreAccountConfig[],
   configDir: string,
-  readFile: (path: string) => string = (p) => readFileSync(p, 'utf8'),
+  readFile: (path: string) => string = (p) => readText(p),
 ): PlayAccount[] {
   return accounts
     .filter((a): a is StoreAccountConfig & { play: NonNullable<StoreAccountConfig['play']> } => !!a.play)

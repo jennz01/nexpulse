@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { readText } from './config';
 import { dirname } from 'node:path';
 import { CODEMAGIC_API } from './sources/codemagic';
 
 /** Sets (or, with null, removes) `KEY=value` in an env file, keeping every other line, including comments, as it is. */
 export function writeEnvValue(envPath: string, key: string, value: string | null): void {
-  const existing = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';
+  const existing = existsSync(envPath) ? readText(envPath) : '';
   const own = new RegExp(`^\\s*#?\\s*${key}\\s*=`);
   const kept = existing.split(/\r?\n/).filter((line) => !own.test(line));
   while (kept.length && kept[kept.length - 1] === '') kept.pop();

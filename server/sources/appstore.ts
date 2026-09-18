@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readText } from '../config';
 import { resolve } from 'node:path';
 import { APPSTORE_DEAD_STATES, APPSTORE_HIGH_STATES, APPSTORE_LIVE_STATES, humanState } from '../../shared/status';
 import type { AppStoreApp, AppStoreSnapshot, AppStoreVersion, NewEvent } from '../../shared/types';
@@ -116,7 +116,7 @@ export const appstoreSource: Source<AppStoreSnapshot, AppStoreConfig> = {
 export function loadAppStoreAccounts(
   accounts: StoreAccountConfig[],
   configDir: string,
-  readFile: (path: string) => string = (p) => readFileSync(p, 'utf8'),
+  readFile: (path: string) => string = (p) => readText(p),
 ): AppStoreAccount[] {
   return accounts
     .filter((a): a is StoreAccountConfig & { appstore: NonNullable<StoreAccountConfig['appstore']> } => !!a.appstore)
