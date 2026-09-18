@@ -122,6 +122,41 @@ export interface LarkSnapshot {
   issues: { groups: LarkGroup[]; counts: Record<string, number> };
   feedback: { records: LarkRecord[] };
 }
+/** A table of a Lark Base, for the Settings picker. */
+export interface LarkTableInfo {
+  id: string;
+  name: string;
+  /** Rows in the table, when lark-cli reports it. */
+  records: number | null;
+}
+/** Which table and view one Lark panel follows; `viewName` is recorded when it is picked, for the panel header. */
+export interface LarkTableSelection {
+  tableId: string;
+  viewId: string;
+  viewName: string | null;
+}
+/** The Lark Base the three Lark panels read, as the Settings page sees it. */
+export interface LarkBaseInfo {
+  domain: string;
+  baseToken: string;
+  /** False while the Base token or any table/view id is still an example placeholder; the Lark source stays off until then. */
+  configured: boolean;
+  tables: { tasks: LarkTableSelection; issues: LarkTableSelection; feedback: LarkTableSelection };
+}
+/** A Settings edit: the Base itself, the three table/view pairs, or both. */
+export interface LarkBaseInput {
+  domain?: string;
+  baseToken?: string;
+  tables?: Partial<Record<'tasks' | 'issues' | 'feedback', { tableId: string; viewId: string; viewName?: string }>>;
+}
+/** A view of a Lark Base table, for the Settings picker. */
+export interface LarkViewInfo {
+  id: string;
+  name: string;
+  type: string;
+  /** lark-cli's one-line summary of the view's filter, grouping and visible fields, when it gives one. */
+  summary: string | null;
+}
 
 // ---- App Store Connect ----
 export interface AppStoreVersion {
@@ -191,6 +226,8 @@ export interface PublicConfig {
   feedbackGroupOrder: string[];
   /** Repositories whose open PRs fill the Pull Requests panel's All tab (owner/name). */
   githubRepos: string[];
+  /** The Lark Base the three Lark panels read, and the table and view behind each one (config `lark`). */
+  larkBase: LarkBaseInfo;
 }
 export interface StateResponse {
   states: SourceStates;

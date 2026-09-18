@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 const config: PublicConfig = {
   intervals: { github: 60, codemagic: 120, lark: 120, appstore: 600, playstore: 600 },
-  larkDomain: 'd', accounts: [], pendingLaunchStatus: 'P', collapsedStatuses: [], showIssueStatuses: ['OPEN', 'CHECKING'], taskFormUrl: null, feedbackGroupOrder: [], githubRepos: [],
+  larkDomain: 'd', accounts: [], pendingLaunchStatus: 'P', collapsedStatuses: [], showIssueStatuses: ['OPEN', 'CHECKING'], taskFormUrl: null, feedbackGroupOrder: [], githubRepos: [], larkBase: { domain: 'example.larksuite.com', baseToken: 'bascTest', configured: true, tables: { tasks: { tableId: 'tblT', viewId: 'vewT', viewName: null }, issues: { tableId: 'tblI', viewId: 'vewI', viewName: null }, feedback: { tableId: 'tblF', viewId: 'vewF', viewName: null } } },
 };
 const rec = (id: string, ticket: string, hours: string, description: string) => ({
   recordId: id, url: `https://lark/${id}`,

@@ -60,6 +60,17 @@ export async function buildGithubSource(loaded: LoadedConfig, log: (line: string
   return { source: githubSource, ctx: { ...base, config: loaded.config.github }, intervalSec: loaded.config.polling.github, disabled: gh.disabled };
 }
 
+/** The Lark source; built at startup and again when the Tasks view changes in Settings. */
+export function buildLarkSource(loaded: LoadedConfig, log: (line: string) => void): RegisteredSource {
+  const base = { run, fetch, log, now: Date.now };
+  return {
+    source: { ...larkSource, diff: (p: LarkSnapshot | null, n: LarkSnapshot) => diffLark(p, n, loaded.config.lark.tables.issues.showStatuses[0] ?? 'OPEN') },
+    ctx: { ...base, config: loaded.config.lark },
+    intervalSec: loaded.config.polling.lark,
+    disabled: loaded.problems.lark ?? null,
+  };
+}
+
 /** Instantiate every source from the loaded config. Sources with a config problem are registered as disabled so the UI can show why. */
 export async function buildSources(loaded: LoadedConfig, deps: BuildDeps): Promise<BuiltSources> {
   const { log } = deps;
@@ -73,12 +84,7 @@ export async function buildSources(loaded: LoadedConfig, deps: BuildDeps): Promi
   sources.push({ source: codemagicSource, ctx: { ...base, config: { token } }, intervalSec: loaded.config.polling.codemagic, disabled: codemagicDisabled });
   const codemagic = codemagicDisabled ? undefined : createCodemagicActions(token, () => deps.getSnapshot<CodemagicSnapshot>('codemagic'));
 
-  sources.push({
-    source: { ...larkSource, diff: (p: LarkSnapshot | null, n: LarkSnapshot) => diffLark(p, n, loaded.config.lark.tables.issues.showStatuses[0] ?? 'OPEN') },
-    ctx: { ...base, config: loaded.config.lark },
-    intervalSec: loaded.config.polling.lark,
-    disabled: loaded.problems.lark ?? null,
-  });
+  sources.push(buildLarkSource(loaded, log));
 
   sources.push(...buildStoreSources(loaded, log));
 

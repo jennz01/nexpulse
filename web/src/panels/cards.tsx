@@ -53,7 +53,7 @@ export function TasksCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals } = ctx;
   const lark = state.states.lark.snapshot;
   return (
-    <Panel id="tasks" title="Tasks" count={lark ? `${lark.tasks.total} · Jenn view` : undefined} unread={0} state={state.states.lark} intervalSec={intervals.lark} now={now}
+    <Panel id="tasks" title="Tasks" count={lark ? `${lark.tasks.total}${state.config?.larkBase.tables.tasks.viewName ? ` · ${state.config.larkBase.tables.tasks.viewName}` : ''}` : undefined} unread={0} state={state.states.lark} intervalSec={intervals.lark} now={now}
       onRefresh={() => void refreshSource('lark')}
       headerRight={state.config?.taskFormUrl ? (
         <a className="btn primary" href={state.config.taskFormUrl} target="_blank" rel="noreferrer" title="Open the R&D Task form in Lark"><IconPlus size={12} />Create task</a>

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { PublicConfig, SourceId } from '../shared/types';
+import type { LarkTableSelection, PublicConfig, SourceId } from '../shared/types';
 
 const id = z.string().min(1);
 
@@ -20,6 +20,8 @@ const FeedbackFields = z.object({
 const TasksTable = z.object({
   tableId: id,
   viewId: id,
+  /** Display name of the view above, recorded when it is picked in Settings; the poll only uses the id. */
+  viewName: z.string().optional(),
   pendingLaunchStatus: z.string().default('PENDING TO LAUNCH'),
   collapsedStatuses: z.array(z.string()).default(['PRODUCTION']),
   /** Display order for the active task groups; unlisted statuses follow, collapsed ones come last. */
@@ -31,12 +33,16 @@ const TasksTable = z.object({
 const IssuesTable = z.object({
   tableId: id,
   viewId: id,
+  /** Display name of the view above, recorded when it is picked in Settings; the poll only uses the id. */
+  viewName: z.string().optional(),
   showStatuses: z.array(z.string()).default(['OPEN', 'CHECKING']),
   fields: IssueFields,
 });
 const FeedbackTable = z.object({
   tableId: id,
   viewId: id,
+  /** Display name of the view above, recorded when it is picked in Settings; the poll only uses the id. */
+  viewName: z.string().optional(),
   limit: z.number().int().positive().default(30),
   /** Status groups shown first, in this order; other statuses follow by first appearance. */
   groupOrder: z.array(z.string()).default([]),
@@ -75,6 +81,10 @@ export const ConfigSchema = z.object({
 export type DashboardConfig = z.infer<typeof ConfigSchema>;
 /** `github.account` still blank or as shipped in the example config. The dashboard then accepts whichever account gh is signed in as and writes it back (AuthManager, index.ts). */
 export const isUnsetGithubAccount = (account: string): boolean => account.trim() === '' || account === 'your-github-login';
+/** Every id the Lark source needs: the Base token and the three table/view pairs. */
+const larkIdsOf = (config: DashboardConfig): string[] => [config.lark.baseToken, ...Object.values(config.lark.tables).flatMap((t) => [t.tableId, t.viewId])];
+/** True once none of those ids is an example placeholder, i.e. the Base has been set up (Settings → Lark Base, or by hand). */
+export const isLarkConfigured = (config: DashboardConfig): boolean => !larkIdsOf(config).some((v) => /XXXX/.test(v));
 export type LarkConfig = DashboardConfig['lark'];
 export type LarkTableKey = keyof LarkConfig['tables'];
 export type StoreAccountConfig = z.infer<typeof StoreAccount>;
@@ -132,8 +142,7 @@ export function validateSources(
     const missing = play.filter((a) => !exists(resolve(configDir, a.play!.serviceAccountFile)));
     if (missing.length) problems.playstore = `service account file missing for: ${missing.map((a) => a.name).join(', ')}`;
   }
-  const larkIds = [config.lark.baseToken, ...Object.values(config.lark.tables).flatMap((t) => [t.tableId, t.viewId])];
-  if (larkIds.some((v) => /XXXX/.test(v))) problems.lark = 'lark config still has placeholder ids (see README: Lark setup)';
+  if (!isLarkConfigured(config)) problems.lark = 'Lark Base is not set up yet (Settings → Lark Base)';
 
   return problems;
 }
@@ -159,6 +168,8 @@ export function loadConfig(rootDir: string): LoadedConfig {
   return { config: parsed.data, secrets, problems: validateSources(parsed.data, secrets, configDir), configDir };
 }
 
+const selection = (t: { tableId: string; viewId: string; viewName?: string }): LarkTableSelection => ({ tableId: t.tableId, viewId: t.viewId, viewName: t.viewName ?? null });
+
 export function publicConfig(config: DashboardConfig): PublicConfig {
   return {
     intervals: {
@@ -176,5 +187,15 @@ export function publicConfig(config: DashboardConfig): PublicConfig {
     taskFormUrl: config.lark.tables.tasks.createFormUrl ?? null,
     feedbackGroupOrder: config.lark.tables.feedback.groupOrder,
     githubRepos: config.github.repos,
+    larkBase: {
+      domain: config.lark.domain,
+      baseToken: config.lark.baseToken,
+      configured: isLarkConfigured(config),
+      tables: {
+        tasks: selection(config.lark.tables.tasks),
+        issues: selection(config.lark.tables.issues),
+        feedback: selection(config.lark.tables.feedback),
+      },
+    },
   };
 }

@@ -90,7 +90,7 @@ export function Preferences({ settings, onChange, permission, onRequestPermissio
             <span>App Store · Google Play</span><span className="mono muted">every {config.intervals.appstore} s</span>
           </div>
         )}
-        <span className="hint">Intervals, the GitHub account and the Lark views are set in config/dashboard.config.json. Sign-ins and the Codemagic token are managed under Connections above; store accounts below.</span>
+        <span className="hint">Intervals, the GitHub account and the Lark column names are set in config/dashboard.config.json; the Lark Base and its views are picked under Lark Base above. Sign-ins and the Codemagic token are managed under Connections; store accounts below.</span>
       </Card>
     </>
   );

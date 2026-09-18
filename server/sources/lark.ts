@@ -1,4 +1,4 @@
-import type { LarkAttachment, LarkGroup, LarkRecord, LarkSnapshot, NewEvent } from '../../shared/types';
+import type { LarkAttachment, LarkGroup, LarkRecord, LarkSnapshot, LarkTableInfo, LarkViewInfo, NewEvent } from '../../shared/types';
 import type { LarkConfig, LarkTableKey } from '../config';
 import { cliMessage } from '../proc';
 import { SourceError } from './types';
@@ -212,6 +212,48 @@ export async function listRecords(run: Runner, cfg: LarkConfig, key: LarkTableKe
     if (items.length === 0 || (!hasMore && items.length < PAGE_SIZE)) break;
   }
   return all;
+}
+
+/** Tables in the configured Base (`lark-cli base +table-list`), for the Settings picker. */
+export async function listTables(run: Runner, cfg: LarkConfig): Promise<LarkTableInfo[]> {
+  const res = await run('lark-cli', ['base', '+table-list', '--base-token', cfg.baseToken, '--as', 'user', '--format', 'json', '--limit', '200']);
+  if (res.timedOut) throw new SourceError('lark-cli timed out listing tables');
+  if (res.code !== 0) throw new SourceError(`lark-cli exited ${res.code} listing tables: ${cliMessage(res.stderr || res.stdout, 'no output')}`, larkHint(res.stderr + res.stdout));
+  let json: { data?: { tables?: unknown[] } } | null = null;
+  try { json = JSON.parse(res.stdout); } catch { json = null; }
+  const tables = Array.isArray(json?.data?.tables) ? json!.data!.tables : null;
+  if (!tables) throw new SourceError(`lark-cli returned no tables array: ${firstLine(res.stdout)}`);
+  return (tables as Array<Record<string, unknown>>)
+    .filter((t): t is Record<string, unknown> & { id: string; name: string } => typeof t.id === 'string' && typeof t.name === 'string')
+    .map((t) => ({ id: t.id, name: t.name, records: typeof t.records_count === 'number' ? t.records_count : null }));
+}
+
+/** One table's views (`lark-cli base +view-list`), for the Settings picker. */
+export async function listViews(run: Runner, cfg: LarkConfig, tableId: string): Promise<LarkViewInfo[]> {
+  const out: LarkViewInfo[] = [];
+  for (let page = 0; page < 5; page++) {
+    const args = ['base', '+view-list', '--base-token', cfg.baseToken, '--table-id', tableId, '--as', 'user', '--format', 'json', '--limit', '200', '--offset', String(page * 200)];
+    const res = await run('lark-cli', args);
+    if (res.timedOut) throw new SourceError(`lark-cli timed out listing views of ${tableId}`);
+    if (res.code !== 0) throw new SourceError(`lark-cli exited ${res.code} listing views of ${tableId}: ${cliMessage(res.stderr || res.stdout, 'no output')}`, larkHint(res.stderr + res.stdout));
+    let json: { data?: { total?: number; views?: unknown[] } } | null = null;
+    try { json = JSON.parse(res.stdout); } catch { json = null; }
+    const views = Array.isArray(json?.data?.views) ? json!.data!.views : null;
+    if (!views) throw new SourceError(`lark-cli returned no views array for ${tableId}: ${firstLine(res.stdout)}`);
+    for (const v of views as Array<Record<string, unknown>>) {
+      if (typeof v.id !== 'string' || typeof v.name !== 'string') continue;
+      const meta = (v._meta && typeof v._meta === 'object' ? v._meta : {}) as Record<string, unknown>;
+      const parts = [
+        typeof meta.filter === 'string' ? meta.filter : null,
+        Array.isArray(meta.group) && meta.group.length ? 'grouped' : null,
+        typeof meta.visible_fields === 'string' ? meta.visible_fields : null,
+      ].filter((p): p is string => !!p);
+      out.push({ id: v.id, name: v.name, type: typeof v.type === 'string' ? v.type : 'grid', summary: parts.length ? parts.join(' · ') : null });
+    }
+    const total = json?.data?.total;
+    if (views.length < 200 || (typeof total === 'number' && out.length >= total)) break;
+  }
+  return out;
 }
 
 export async function fetchLark(ctx: SourceContext<LarkConfig>): Promise<LarkSnapshot> {

@@ -51,9 +51,9 @@ describe('validateSources', () => {
     expect(problems.playstore).toBe('no Google Play accounts configured');
   });
 
-  test('flags placeholder Lark ids', () => {
+  test('flags a Lark Base that is still the example placeholder', () => {
     const problems = validateSources(config, { CODEMAGIC_API_TOKEN: 't' }, 'C:/repo/config', () => true);
-    expect(problems.lark).toContain('placeholder');
+    expect(problems.lark).toContain('Lark Base is not set up yet');
   });
 });
 

@@ -126,6 +126,8 @@ Settings is the last item in the sidebar.
 
 **Pull requests** picks the repositories behind the Pull Requests panel's **All** tab. The card lists every repository the signed-in `gh` account can see (owned, collaborator or organization member), newest push first, with its open PR count; tick up to 50 and Save. The selection is written to `github.repos` in the config and polled immediately, so on a shared team setup each person's dashboard shows their own repositories. Review requested and Mine are unaffected and always cover everything the account can see; a repository that is later renamed or lost only drops out of the All tab.
 
+**Lark Base** points the three Lark panels at a Base and picks the table and view behind each one. Paste a Base link (`https://<domain>/base/<baseToken>…`, straight from Lark's address bar) and the card lists that Base's tables, then each table's views with its filter and grouping summary. The Tasks view is normally your own filtered view, so on a shared team setup each person's dashboard shows their own tasks. The selection is written to `lark.domain`, `lark.baseToken` and `lark.tables.*` in the config and polled immediately, so nothing here needs editing by hand. The column names under each table stay as configured.
+
 Alerts: Windows toast (native notification for high-priority events; needs one-time permission), in-page badges only, or off. Appearance: theme light / dark / auto, font size small / medium / large, density comfortable / compact. Stored per browser.
 
 ## Customizing the Home page

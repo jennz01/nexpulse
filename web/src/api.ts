@@ -1,4 +1,4 @@
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LoginState, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkTableInfo, LarkViewInfo, LoginState, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
 
 const POST_HEADERS = { 'x-requested-with': 'dashboard' };
 
@@ -70,6 +70,12 @@ export const switchGithubAccount = async (): Promise<AuthStatus> => json<AuthSta
 // ---- Repositories for the Pull Requests panel's All tab (Settings → Pull requests) ----
 export const fetchGithubRepos = async (): Promise<{ repos: RepoInfo[]; selected: string[] }> => json(await fetch('/api/github/repos'));
 export const saveGithubRepos = async (repos: string[]): Promise<{ selected: string[] }> => json(await fetch('/api/github/repos', { method: 'PUT', headers: JSON_POST, body: JSON.stringify({ repos }) }));
+
+// ---- The Lark Base behind the Lark panels (Settings → Lark Base) ----
+export const fetchLarkBase = async (): Promise<{ base: LarkBaseInfo; tables: LarkTableInfo[] }> => json(await fetch('/api/lark/base'));
+export const fetchLarkViews = async (tableId: string): Promise<{ views: LarkViewInfo[] }> => json(await fetch(`/api/lark/views/${encodeURIComponent(tableId)}`));
+export const saveLarkBase = async (input: LarkBaseInput): Promise<{ base: LarkBaseInfo }> =>
+  json(await fetch('/api/lark/base', { method: 'PUT', headers: JSON_POST, body: JSON.stringify(input) }));
 
 // ---- Codemagic API token (Settings → Connections) ----
 export const fetchCodemagicToken = async (): Promise<CodemagicTokenStatus> => json<CodemagicTokenStatus>(await fetch('/api/codemagic/token'));

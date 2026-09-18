@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { LarkTableKey } from './config';
 import { SOURCE_IDS } from '../shared/types';
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
 import { AccountInputError } from './accounts';
 import type { StoreAccounts } from './accounts';
 import type { Scheduler } from './scheduler';
@@ -45,9 +45,21 @@ const REPO_NAME = /^[\w.-]+\/[\w.-]+$/;
 export interface LarkActions {
   /** Streams a Base attachment, downloaded through lark-cli and cached on disk; `range` is the request's Range header. */
   attachment(table: LarkTableKey, recordId: string, token: string, name: string, range?: string | null): Promise<Response>;
+  /** Tables in the configured Base, for the Settings picker. */
+  listTables(): Promise<LarkTableInfo[]>;
+  /** One table's views, for the Settings picker. */
+  listViews(tableId: string): Promise<LarkViewInfo[]>;
+  /** Writes the Base and/or the three table/view pairs into the config and polls again; resolves to the saved Base. */
+  saveBase(input: LarkBaseInput): Promise<LarkBaseInfo>;
 }
 
 const isLarkTable = (t: string): t is LarkTableKey => t === 'tasks' || t === 'issues' || t === 'feedback';
+/** Lark Base tokens carry no fixed prefix, so only the shape is checked; the example config's placeholder is caught by XXXX. */
+const BASE_TOKEN = /^[A-Za-z0-9]{10,}$/;
+const usableBaseToken = (t: string): boolean => BASE_TOKEN.test(t) && !/XXXX/.test(t);
+const TABLE_ID = /^tbl[A-Za-z0-9]+$/;
+const VIEW_ID = /^vew[A-Za-z0-9]+$/;
+const LARK_DOMAIN = /^[a-z0-9.-]+\.[a-z]{2,}$/;
 
 export interface AppDeps {
   store: Store;
@@ -217,6 +229,49 @@ export function createApp(deps: AppDeps): Hono {
     const repos = [...new Set(list as string[])];
     if (repos.length > 50) return c.json({ error: 'at most 50 repositories' }, 400);
     try { return c.json({ selected: await deps.github.setRepos(repos) }); } catch (e) { return c.json({ error: describeError(e) }, 400); }
+  });
+
+  // ---- The Lark Base behind the three Lark panels (config lark.domain, lark.baseToken, lark.tables) ----
+  app.get('/api/lark/base', async (c) => {
+    if (!deps.lark) return c.json({ error: 'not available' }, 409);
+    const base = deps.publicConfig.larkBase;
+    // Without a real Base token there is nothing to list yet; the page asks for the Base link first.
+    if (!usableBaseToken(base.baseToken)) return c.json({ base, tables: [] });
+    try { return c.json({ base, tables: await deps.lark.listTables() }); } catch (e) { return c.json({ error: describeError(e) }, 502); }
+  });
+  app.get('/api/lark/views/:tableId', async (c) => {
+    if (!deps.lark) return c.json({ error: 'not available' }, 409);
+    const tableId = c.req.param('tableId');
+    if (!TABLE_ID.test(tableId)) return c.json({ error: 'tableId must be a Lark table id (tbl…)' }, 400);
+    try { return c.json({ views: await deps.lark.listViews(tableId) }); } catch (e) { return c.json({ error: describeError(e) }, 502); }
+  });
+  app.put('/api/lark/base', async (c) => {
+    if (!deps.lark) return c.json({ error: 'not available' }, 409);
+    const body = (await c.req.json().catch(() => null)) as LarkBaseInput | null;
+    if (!body) return c.json({ error: 'expected a JSON body' }, 400);
+    const input: LarkBaseInput = {};
+    if (body.domain !== undefined || body.baseToken !== undefined) {
+      const domain = typeof body.domain === 'string' ? body.domain.trim().toLowerCase() : '';
+      const baseToken = typeof body.baseToken === 'string' ? body.baseToken.trim() : '';
+      if (!LARK_DOMAIN.test(domain)) return c.json({ error: 'domain must be a Lark host, e.g. yourcompany.larksuite.com' }, 400);
+      if (!usableBaseToken(baseToken)) return c.json({ error: 'baseToken does not look like a Lark Base token' }, 400);
+      input.domain = domain;
+      input.baseToken = baseToken;
+    }
+    if (body.tables) {
+      const tables: NonNullable<LarkBaseInput['tables']> = {};
+      for (const [key, value] of Object.entries(body.tables)) {
+        if (!isLarkTable(key)) return c.json({ error: `unknown table ${key}` }, 400);
+        const tableId = typeof value?.tableId === 'string' ? value.tableId.trim() : '';
+        const viewId = typeof value?.viewId === 'string' ? value.viewId.trim() : '';
+        if (!TABLE_ID.test(tableId)) return c.json({ error: `${key}: tableId must be a Lark table id (tbl…)` }, 400);
+        if (!VIEW_ID.test(viewId)) return c.json({ error: `${key}: viewId must be a Lark view id (vew…)` }, 400);
+        tables[key] = { tableId, viewId, viewName: typeof value?.viewName === 'string' ? value.viewName.trim().slice(0, 120) : '' };
+      }
+      if (Object.keys(tables).length) input.tables = tables;
+    }
+    if (input.domain === undefined && input.tables === undefined) return c.json({ error: 'nothing to save' }, 400);
+    try { return c.json({ base: await deps.lark.saveBase(input) }); } catch (e) { return c.json({ error: describeError(e) }, 400); }
   });
 
   // ---- Codemagic API token, kept in config/secrets/.env ----

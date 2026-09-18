@@ -13,7 +13,8 @@ import { run } from './proc';
 import { Scheduler } from './scheduler';
 import { codemagicSource, createCodemagicActions } from './sources/codemagic';
 import { listRepos } from './sources/github';
-import { buildGithubSource, buildSources, buildStoreSources } from './sources/index';
+import { buildGithubSource, buildLarkSource, buildSources, buildStoreSources } from './sources/index';
+import { listTables, listViews } from './sources/lark';
 import { SseHub } from './sse';
 import { Store } from './store';
 import type { CodemagicSnapshot, SourceId } from '../shared/types';
@@ -40,7 +41,8 @@ const devEmit = process.env.DASHBOARD_DEV === '1';
 if (devEmit) log('DASHBOARD_DEV=1: POST /api/dev/emit is enabled');
 const port = loaded.config.server.port;
 const pub = publicConfig(loaded.config);
-const attachments = new LarkAttachments(loaded.config.lark, resolve(ROOT, 'data', 'attachments'));
+// Reassigned when the Base changes in Settings, so attachment downloads use the new token without a restart.
+let attachments = new LarkAttachments(loaded.config.lark, resolve(ROOT, 'data', 'attachments'));
 
 // Settings page edits: rewrite the config, then swap the two store sources in place and poll them at once.
 const accounts = new StoreAccounts({
@@ -142,7 +144,39 @@ const codemagicActions: CodemagicActions = {
 
 const app = createApp({
   store, scheduler, hub, publicConfig: pub, disabled, codemagic: codemagicActions, accounts, devEmit, auth, codemagicToken, github,
-  lark: { attachment: (table, recordId, token, name, range) => attachments.response(table, recordId, token, name, range) },
+  lark: {
+    attachment: (table, recordId, token, name, range) => attachments.response(table, recordId, token, name, range),
+    listTables: () => listTables(run, loaded.config.lark),
+    listViews: (tableId) => listViews(run, loaded.config.lark, tableId),
+    // Base link and table/view pairs picked in Settings: written to the config, then the Lark source is rebuilt around them and polled at once.
+    saveBase: async (input) => {
+      const fresh = editConfig(ROOT, (raw) => {
+        const lark = (raw.lark && typeof raw.lark === 'object' ? raw.lark : {}) as Record<string, unknown>;
+        const tables = { ...(lark.tables && typeof lark.tables === 'object' ? lark.tables : {}) } as Record<string, unknown>;
+        for (const [key, value] of Object.entries(input.tables ?? {})) {
+          const before = (tables[key] && typeof tables[key] === 'object' ? tables[key] : {}) as Record<string, unknown>;
+          tables[key] = { ...before, tableId: value.tableId, viewId: value.viewId, viewName: value.viewName || undefined };
+        }
+        raw.lark = {
+          ...lark,
+          ...(input.domain ? { domain: input.domain } : {}),
+          ...(input.baseToken ? { baseToken: input.baseToken } : {}),
+          tables,
+        };
+      });
+      loaded.config = fresh.config;
+      loaded.problems = fresh.problems;
+      Object.assign(pub, publicConfig(fresh.config));
+      attachments = new LarkAttachments(fresh.config.lark, resolve(ROOT, 'data', 'attachments'));
+      const reg = buildLarkSource(loaded, log);
+      if (reg.disabled) disabled.lark = reg.disabled;
+      else delete disabled.lark;
+      scheduler.replace(reg);
+      const what = [input.baseToken ? `base ${input.domain}` : null, input.tables ? `${Object.keys(input.tables).length} table(s)` : null].filter(Boolean).join(' and ');
+      log(`lark: ${what} set from Settings${reg.disabled ? `; still disabled (${reg.disabled})` : ', polling now'}`);
+      return pub.larkBase;
+    },
+  },
   allowedHosts: [`127.0.0.1:${port}`, `localhost:${port}`],
 });
 
