@@ -1,0 +1,17 @@
+{
+  "builds": [
+    {
+      "_id": "b-old", "appId": "app1", "workflowId": "wf-ios", "branch": "develop", "status": "finished",
+      "startedAt": "2026-09-16T09:20:00Z", "finishedAt": "2026-09-16T09:41:00Z", "config": { "name": "ios-release" },
+      "artefacts": [ { "name": "SGPOS.ipa", "type": "ipa", "url": "https://api.codemagic.io/artifacts/abc/SGPOS.ipa", "size": 88080384 } ]
+    },
+    {
+      "_id": "b-run", "appId": "app1", "workflowId": "wf-android", "branch": "release/3.47.2", "status": "building",
+      "startedAt": "2026-09-17T01:35:00Z", "finishedAt": null, "config": { "name": "android-release" }, "artefacts": []
+    },
+    {
+      "_id": "b-fail", "appId": "app1", "workflowId": "wf-ios", "branch": "release/3.47.2", "status": "failed",
+      "startedAt": "2026-09-17T01:10:00Z", "finishedAt": "2026-09-17T01:28:00Z", "config": { "name": "ios-release" }, "artefacts": []
+    }
+  ]
+}

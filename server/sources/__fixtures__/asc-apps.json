@@ -1,0 +1,7 @@
+{
+  "data": [
+    { "type": "apps", "id": "1111111111", "attributes": { "name": "SGPOS", "bundleId": "com.sitegiant.sgpos", "sku": "SGPOS" } },
+    { "type": "apps", "id": "2222222222", "attributes": { "name": "Shopping App", "bundleId": "com.sitegiant.shopping", "sku": "SHOP" } }
+  ],
+  "links": { "self": "https://api.appstoreconnect.apple.com/v1/apps?limit=200" }
+}

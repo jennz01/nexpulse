@@ -1,0 +1,112 @@
+{
+  "ok": true,
+  "identity": "user",
+  "data": {
+    "data": [
+      [
+        "[QE] MOBILE/SGPOS (SHIFT) - Refactor offline shift module",
+        [
+          {
+            "id": "ou_person_a",
+            "name": "Person A"
+          }
+        ],
+        [
+          "QE"
+        ],
+        [
+          "High"
+        ],
+        null,
+        [
+          "CLOSED"
+        ],
+        "2026-05-21T11:38:52.916+08:00",
+        null
+      ],
+      [
+        "[CHORE] Setup new apple developer account for Taiwan",
+        [
+          {
+            "id": "ou_person_a",
+            "name": "Person A"
+          }
+        ],
+        [
+          "CHORE"
+        ],
+        [
+          "Normal"
+        ],
+        null,
+        [
+          "CLOSED"
+        ],
+        "2025-10-30T17:59:09.085+08:00",
+        "08/12/2025\nSecond line of the description"
+      ],
+      [
+        "[CHORE] MOBILE/SHOPPING APP (GENERAL) - Sentry error grouping and reduce duplicate errors",
+        [
+          {
+            "id": "ou_person_a",
+            "name": "Person A"
+          }
+        ],
+        [
+          "CHORE"
+        ],
+        [
+          "Normal"
+        ],
+        null,
+        [
+          "PRODUCTION"
+        ],
+        "2026-09-15T10:49:10.149+08:00",
+        null
+      ]
+    ],
+    "fields": [
+      "Task Name",
+      "PIC",
+      "Task Type",
+      "Priority",
+      "Progress",
+      "Dev Status",
+      "Dev Start Date",
+      "Description"
+    ],
+    "field_type_list": [
+      "text",
+      "user",
+      "select",
+      "select",
+      "number",
+      "select",
+      "datetime",
+      "text"
+    ],
+    "field_id_list": [
+      "fldQN3lgTl",
+      "fldGvKoHks",
+      "fldSQepH0K",
+      "fldMj2ZWwD",
+      "fldaXuTqLR",
+      "fldeZ30CPt",
+      "fldFgCA8ZF",
+      "fldELW4umU"
+    ],
+    "record_id_list": [
+      "recvkdNOHZ9kV3",
+      "recuYsNXfhdnW1",
+      "rec28bEGbr4TAn"
+    ],
+    "has_more": true,
+    "query_context": {
+      "field_scope": "view_visible_fields",
+      "record_scope": "view_filtered_records"
+    },
+    "timezone": "Asia/Kuala_Lumpur"
+  }
+}

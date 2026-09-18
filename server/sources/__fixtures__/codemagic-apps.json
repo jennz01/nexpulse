@@ -1,0 +1,9 @@
+{
+  "applications": [
+    {
+      "_id": "app1", "appName": "SGPOS",
+      "workflows": { "wf-ios": { "name": "ios-release" }, "wf-android": { "name": "android-release" } }
+    },
+    { "_id": "app2", "appName": "Shopping App", "workflows": { "wf-and2": { "name": "android-release" } } }
+  ]
+}

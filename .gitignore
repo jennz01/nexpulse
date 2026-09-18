@@ -1,0 +1,15 @@
+node_modules/
+dist/
+web/dist/
+data/
+config/secrets/
+config/dashboard.config.json
+*.sqlite
+*.sqlite-*
+.env
+docs/design/personal-dashboard.html
+!config/secrets/.gitkeep
+
+# tool scratch
+.playwright-mcp/
+.memsearch/

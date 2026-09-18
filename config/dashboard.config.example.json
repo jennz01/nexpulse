@@ -1,0 +1,109 @@
+{
+  "server": {
+    "port": 6600
+  },
+  "polling": {
+    "github": 60,
+    "codemagic": 120,
+    "lark": 120,
+    "stores": 600
+  },
+  "github": {
+    "account": "jennsg"
+  },
+  "codemagic": {
+    "enabled": true
+  },
+  "lark": {
+    "domain": "example.larksuite.com",
+    "baseToken": "bascXXXX",
+    "tables": {
+      "tasks": {
+        "tableId": "tblXXXX",
+        "viewId": "vewXXXX",
+        "createFormUrl": "https://yourcompany.larksuite.com/share/base/form/shrXXXX",
+        "pendingLaunchStatus": "PENDING TO LAUNCH",
+        "collapsedStatuses": [
+          "PRODUCTION"
+        ],
+        "fields": {
+          "title": "Task Name",
+          "status": "Status",
+          "pic": "PIC",
+          "type": "Task Type",
+          "priority": "Priority",
+          "progress": "Progress"
+        },
+        "groupOrder": [
+          "PENDING TO LAUNCH",
+          "SENIOR QC",
+          "IN PROGRESS"
+        ]
+      },
+      "issues": {
+        "tableId": "tblXXXX",
+        "viewId": "vewXXXX",
+        "showStatuses": [
+          "OPEN",
+          "CHECKING"
+        ],
+        "fields": {
+          "ticketId": "Ticket ID",
+          "reportedDate": "Reported Date",
+          "hoursSince": "Hours Since",
+          "priority": "Priority",
+          "store": "ERP Store Name / Email",
+          "description": "Issue Description",
+          "status": "Status",
+          "reportedBy": "Reported By",
+          "taggedPic": "Tagged PIC",
+          "modulePic": "Module PIC",
+          "attachments": "Attachment"
+        }
+      },
+      "feedback": {
+        "tableId": "tblXXXX",
+        "viewId": "vewXXXX",
+        "limit": 30,
+        "fields": {
+          "reportedDate": "Reported Date",
+          "category": "Category",
+          "store": "ERP Store Name / Email",
+          "text": "Feedback / Suggestion",
+          "rid": "RID",
+          "status": "R&D Status",
+          "pic": "PIC",
+          "reportedBy": "Reported By",
+          "taskLink": "R&D Task Link",
+          "attachments": "Attachment"
+        },
+        "groupOrder": [
+          "NEW"
+        ]
+      }
+    }
+  },
+  "stores": {
+    "accounts": [
+      {
+        "name": "Account A",
+        "appstore": {
+          "issuerId": "00000000-0000-0000-0000-000000000000",
+          "keyId": "ABC123DEFG",
+          "keyFile": "secrets/AuthKey_ABC123DEFG.p8"
+        },
+        "play": {
+          "serviceAccountFile": "secrets/play-account-a.json",
+          "developerId": "1234567890",
+          "apps": [
+            {
+              "packageName": "com.example.app",
+              "name": "SGPOS",
+              "consoleUrl": "https://play.google.com/console/u/0/developers/1234567890/app/4970000000000000000/tracks/production"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

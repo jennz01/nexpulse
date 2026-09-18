@@ -1,0 +1,39 @@
+{
+  "name": "personal-dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"bun --watch server/index.ts\" \"vite --config web/vite.config.ts\"",
+    "dev:server": "bun --watch server/index.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build": "vite build --config web/vite.config.ts",
+    "start": "bun server/index.ts",
+    "check": "bun server/check.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "startup:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/startup.ps1 install",
+    "startup:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/startup.ps1 status",
+    "startup:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/startup.ps1 restart",
+    "startup:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/startup.ps1 stop",
+    "startup:uninstall": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/startup.ps1 uninstall"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5",
+    "@fontsource/ibm-plex-sans": "^5",
+    "hono": "^4",
+    "react": "^19",
+    "react-dom": "^19",
+    "zod": "^4"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "^20",
+    "@testing-library/react": "^16",
+    "@types/bun": "^1.4.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6",
+    "concurrently": "^10",
+    "typescript": "^5",
+    "vite": "^8"
+  }
+}

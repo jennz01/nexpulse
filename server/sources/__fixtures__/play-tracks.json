@@ -1,0 +1,8 @@
+{
+  "kind": "androidpublisher#tracksListResponse",
+  "tracks": [
+    { "track": "production", "releases": [ { "name": "3.47.1", "versionCodes": ["347102"], "status": "completed" } ] },
+    { "track": "beta", "releases": [ { "name": "3.47.2", "versionCodes": ["347201"], "status": "inProgress", "userFraction": 0.2 } ] },
+    { "track": "internal", "releases": [] }
+  ]
+}

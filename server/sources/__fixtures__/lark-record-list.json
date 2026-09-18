@@ -1,0 +1,46 @@
+{
+  "code": 0,
+  "msg": "success",
+  "data": {
+    "has_more": false,
+    "total": 3,
+    "items": [
+      {
+        "record_id": "recA1",
+        "fields": {
+          "Task Name": [ { "type": "text", "text": "[FEATURE] MOBILE/SGPOS (RECEIPT) - Show item based discount on Receipt" } ],
+          "Status": "PENDING TO LAUNCH",
+          "PIC": [ { "id": "ou_1", "name": "Jenn" }, { "id": "ou_2", "name": "Syamil Aiman" } ],
+          "Task Type": "FEATURE",
+          "Priority": "High",
+          "Progress": 0.92
+        }
+      },
+      {
+        "record_id": "recA2",
+        "fields": {
+          "Task Name": [ { "type": "text", "text": "[CHORE] - Update new auth key" } ],
+          "Status": "PENDING TO LAUNCH",
+          "PIC": [ { "id": "ou_1", "name": "Jenn" } ],
+          "Task Type": "CHORE",
+          "Priority": "Normal",
+          "Progress": 1
+        }
+      },
+      {
+        "record_id": "recA3",
+        "fields": {
+          "Task Name": [ { "type": "text", "text": "[QE] MOBILE/SGPOS (GENERAL) - BCRS" } ],
+          "Status": "SENIOR QC",
+          "PIC": [ { "id": "ou_1", "name": "Jenn" } ],
+          "Task Type": "QE",
+          "Priority": "High",
+          "Progress": 0.6,
+          "Reported Date": 1789516920000,
+          "Hours Since": { "type": 1, "value": [ "24 hours | 1 days" ] },
+          "ERP Store Name / Email": [ { "type": "url", "text": "store@example.com", "link": "mailto:store@example.com" } ]
+        }
+      }
+    ]
+  }
+}
