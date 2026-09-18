@@ -88,26 +88,6 @@
     }
   },
   "stores": {
-    "accounts": [
-      {
-        "name": "Account A",
-        "appstore": {
-          "issuerId": "00000000-0000-0000-0000-000000000000",
-          "keyId": "ABC123DEFG",
-          "keyFile": "secrets/AuthKey_ABC123DEFG.p8"
-        },
-        "play": {
-          "serviceAccountFile": "secrets/play-account-a.json",
-          "developerId": "1234567890",
-          "apps": [
-            {
-              "packageName": "com.example.app",
-              "name": "SGPOS",
-              "consoleUrl": "https://play.google.com/console/u/0/developers/1234567890/app/4970000000000000000/tracks/production"
-            }
-          ]
-        }
-      }
-    ]
+    "accounts": []
   }
 }

@@ -130,14 +130,14 @@ export function validateSources(
   else if (!secrets.CODEMAGIC_API_TOKEN) problems.codemagic = 'CODEMAGIC_API_TOKEN missing from config/secrets/.env';
 
   const asc = config.stores.accounts.filter((a) => a.appstore);
-  if (asc.length === 0) problems.appstore = 'no App Store Connect accounts configured';
+  if (asc.length === 0) problems.appstore = 'no App Store Connect accounts yet (Settings → Store accounts)';
   else {
     const missing = asc.filter((a) => !exists(resolve(configDir, a.appstore!.keyFile)));
     if (missing.length) problems.appstore = `key file missing for: ${missing.map((a) => a.name).join(', ')}`;
   }
 
   const play = config.stores.accounts.filter((a) => a.play);
-  if (play.length === 0) problems.playstore = 'no Google Play accounts configured';
+  if (play.length === 0) problems.playstore = 'no Google Play accounts yet (Settings → Store accounts)';
   else {
     const missing = play.filter((a) => !exists(resolve(configDir, a.play!.serviceAccountFile)));
     if (missing.length) problems.playstore = `service account file missing for: ${missing.map((a) => a.name).join(', ')}`;
