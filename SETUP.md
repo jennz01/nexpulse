@@ -41,7 +41,7 @@ Accounts and credentials, all optional except the first two:
 2. Clone the repo and run the setup script:
 
    ```powershell
-   git clone https://github.com/jennz01/NexPulse.git
+   git clone https://github.com/jennz01/nexpulse.git
    cd NexPulse
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
    ```
@@ -99,7 +99,7 @@ bun run startup:restart
 ```powershell
 winget install Git.Git Oven-sh.Bun GitHub.cli OpenJS.NodeJS.LTS   # open a new window afterwards
 npm install -g @larksuite/cli
-git clone https://github.com/jennz01/NexPulse.git
+git clone https://github.com/jennz01/nexpulse.git
 cd NexPulse
 bun install
 copy config\dashboard.config.example.json config\dashboard.config.json   # then edit it

@@ -7,7 +7,7 @@ Design spec: `docs/superpowers/specs/2026-09-17-personal-dashboard-design.md`. T
 **New here?** [SETUP.md](SETUP.md) walks through requirements, a one-shot install script and running at startup. In short:
 
 ```powershell
-git clone https://github.com/jennz01/NexPulse.git
+git clone https://github.com/jennz01/nexpulse.git
 cd NexPulse
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
 ```
