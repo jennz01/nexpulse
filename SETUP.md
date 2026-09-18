@@ -20,7 +20,7 @@ Two external command-line tools do the talking to GitHub and Lark, so the dashbo
 | Windows 10 or 11 | the start-at-logon task uses Task Scheduler and PowerShell 5.1, both built in | the server itself also runs on macOS and Linux under Bun, but the startup scripts are Windows only |
 | Git | to clone and update the repo | `winget install Git.Git` |
 | Bun 1.3 or newer | runtime, package manager, test runner, SQLite | `winget install Oven-sh.Bun` |
-| Node.js LTS with npm | only to install and run lark-cli | `winget install OpenJS.NodeJS.LTS` |
+| Node.js 16 or newer with npm | only to install and run lark-cli; the build and dev server run on Bun, so the Node version does not matter otherwise | `winget install OpenJS.NodeJS.LTS` |
 | GitHub CLI 2.40 or newer | GitHub source | `winget install GitHub.cli` |
 | lark-cli 1.0.49 or newer | Lark source | `npm install -g @larksuite/cli` |
 | winget | lets the setup script install the tools above | built into Windows 10 1709+ and Windows 11 |
@@ -53,12 +53,12 @@ Accounts and credentials, all optional except the first two:
    - checks for Git, Bun, GitHub CLI, Node.js and lark-cli and installs whatever is missing (winget for the tools, npm for lark-cli);
    - runs `bun install`;
    - creates `config\dashboard.config.json` from the example if you have none, and a `config\secrets\.env` template;
-   - signs you in to GitHub and Lark when needed (each opens a browser window) and writes your GitHub login into the config;
+   - signs you in to GitHub and Lark when needed (each opens a browser window; `-NoLogin` skips this) and writes your GitHub login into the config;
    - builds the UI, runs `bun run check` to call every source once, and registers the start-at-logon task, which also starts the server right away.
 
 4. Open http://127.0.0.1:6600. The Pull Requests panel already works. The Lark panels need the table ids from the next section, and Builds and Stores need their credentials; until then those rows read DISABLED in `bun run check`, which is expected.
 
-Re-running the script is safe: every step checks before it changes anything. Two switches exist: `-NoStartup` does everything except the logon task, `-NoBuild` skips the UI build for a machine that will use `bun run dev` instead. Both work from either shell; `bash scripts/setup.sh -NoStartup` passes them through unchanged.
+Re-running the script is safe: every step checks before it changes anything. Three switches exist: `-NoStartup` does everything except the logon task, `-NoBuild` skips the UI build for a machine that will use `bun run dev` instead, and `-NoLogin` skips the GitHub and Lark sign-in prompts so you can install and build without authorizing anything (sign in later with `gh auth login` and `lark-cli auth login`, or from Settings → Connections). All work from either shell; `bash scripts/setup.sh -NoLogin` passes them through unchanged.
 
 Already have Bun? `bun run setup` runs the same script.
 
@@ -116,6 +116,7 @@ bun run startup:install
 | Symptom | Cause and fix |
 |---|---|
 | `running scripts is disabled on this system` | PowerShell's execution policy. Run the script exactly as shown, with `-ExecutionPolicy Bypass`; nothing is changed permanently. |
+| `bun run build` fails with `does not provide an export named 'styleText'` | Vite was started on a Node.js older than 20.19. The current scripts run Vite and the dev server on Bun (`bun --bun`), so `git pull` and retry; only lark-cli still uses Node. |
 | `winget` is not recognised | Install "App Installer" from the Microsoft Store, or install the tools by hand (Manual steps). |
 | A tool installs but the script says it is not on PATH | Close the terminal, open a new one, run the script again. |
 | `bun run check` says `gh active account is X, expected Y` | The config's `github.account` must be the login `gh` is signed in as: edit the config, or open the dashboard's Settings → Connections and click Switch. |

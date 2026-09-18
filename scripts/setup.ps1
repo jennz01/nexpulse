@@ -4,22 +4,26 @@ One-shot setup for the personal dashboard on Windows. Run it from anywhere:
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1              # from PowerShell
   bash scripts/setup.sh                                                               # from Git Bash (thin wrapper around this file)
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1 -NoStartup   # everything except the logon task
+  bash scripts/setup.sh -NoLogin                                                      # install and build only; sign in to GitHub and Lark later
 
 It is safe to run again at any time: every step checks before it changes anything.
 
   1. Tools      Git, Bun, GitHub CLI, Node.js and lark-cli; missing ones are installed with winget / npm
   2. Packages   bun install
   3. Config     config\dashboard.config.json from the example, config\secrets\.env template
-  4. Logins     gh auth login / lark-cli auth login when not signed in; writes your GitHub login into the config
+  4. Logins     gh auth login / lark-cli auth login when not signed in; writes your GitHub login into the config (skipped with -NoLogin)
   5. Build      bun run build (the static UI the server serves)
   6. Check      bun run check (one call per source; DISABLED rows are fine until you add those credentials)
   7. Startup    bun run startup:install (Windows scheduled task that starts the server at logon)
 #>
+[CmdletBinding()]
 param(
   # Skip registering the logon task (you can run `bun run startup:install` later).
   [switch] $NoStartup,
   # Skip the UI build (for a dev machine that will use `bun run dev`).
-  [switch] $NoBuild
+  [switch] $NoBuild,
+  # Skip the GitHub and Lark sign-in prompts: install and build only. Sign in later with `gh auth login` and `lark-cli auth login`.
+  [switch] $NoLogin
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -89,28 +93,33 @@ if (-not (Test-Path $envPath)) {
   Ok 'config\secrets\.env exists'
 }
 
-Step 'Logins'
-& gh auth status 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
-  Note 'GitHub CLI is not signed in; a browser window will open.'
-  Run 'gh' @('auth', 'login', '--hostname', 'github.com', '--git-protocol', 'https', '--web')
+if ($NoLogin) {
+  Step 'Logins (skipped: -NoLogin)'
+  Note 'Sign in later with `gh auth login` and `lark-cli auth login`, then put your GitHub login in github.account of the config (or use Settings, Connections in the dashboard). Until then the Pull Requests and Lark panels stay off.'
+} else {
+  Step 'Logins'
+  & gh auth status 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    Note 'GitHub CLI is not signed in; a browser window will open.'
+    Run 'gh' @('auth', 'login', '--hostname', 'github.com', '--git-protocol', 'https', '--web')
+  }
+  $login = (& gh api user -q .login).Trim()
+  Ok "GitHub CLI signed in as $login"
+  $config = Get-Content -Raw $configPath | ConvertFrom-Json
+  if ($config.github.account -eq 'your-github-login' -or [string]::IsNullOrWhiteSpace($config.github.account)) {
+    $config.github.account = $login
+    $config | ConvertTo-Json -Depth 20 | Set-Content -Path $configPath -Encoding utf8
+    Ok "Wrote github.account = $login into the config"
+  } elseif ($config.github.account -ne $login) {
+    Note "The config tracks GitHub account '$($config.github.account)' but gh is signed in as '$login'. Match them (edit the config or run gh auth switch) or the Pull Requests panel stays off."
+  }
+  & lark-cli auth status 2>$null | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    Note 'lark-cli is not signed in; a browser window will open.'
+    Run 'lark-cli' @('auth', 'login')
+  }
+  Ok 'lark-cli signed in'
 }
-$login = (& gh api user -q .login).Trim()
-Ok "GitHub CLI signed in as $login"
-$config = Get-Content -Raw $configPath | ConvertFrom-Json
-if ($config.github.account -eq 'your-github-login' -or [string]::IsNullOrWhiteSpace($config.github.account)) {
-  $config.github.account = $login
-  $config | ConvertTo-Json -Depth 20 | Set-Content -Path $configPath -Encoding utf8
-  Ok "Wrote github.account = $login into the config"
-} elseif ($config.github.account -ne $login) {
-  Note "The config tracks GitHub account '$($config.github.account)' but gh is signed in as '$login'. Match them (edit the config or run gh auth switch) or the Pull Requests panel stays off."
-}
-& lark-cli auth status 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
-  Note 'lark-cli is not signed in; a browser window will open.'
-  Run 'lark-cli' @('auth', 'login')
-}
-Ok 'lark-cli signed in'
 
 if (-not $NoBuild) {
   Step 'Build'

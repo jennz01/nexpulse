@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n server,web -c blue,magenta \"bun --watch server/index.ts\" \"vite --config web/vite.config.ts\"",
+    "dev": "bun --bun concurrently -k -n server,web -c blue,magenta \"bun --watch server/index.ts\" \"bun --bun vite --config web/vite.config.ts\"",
     "dev:server": "bun --watch server/index.ts",
-    "dev:web": "vite --config web/vite.config.ts",
-    "build": "vite build --config web/vite.config.ts",
+    "dev:web": "bun --bun vite --config web/vite.config.ts",
+    "build": "bun --bun vite build --config web/vite.config.ts",
     "start": "bun server/index.ts",
     "check": "bun server/check.ts",
     "test": "bun test",
