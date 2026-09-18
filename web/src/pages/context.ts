@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import type { AttentionChip, Event, PanelId, PublicConfig, SourceId } from '../../../shared/types';
+import type { AttentionChip, AuthProvider, AuthStatus, Event, PanelId, PublicConfig, SourceId } from '../../../shared/types';
 import type { HomeLayout } from '../layout/layout';
 import type { Settings } from '../settings/useSettings';
 import type { DashboardState } from '../state';
@@ -27,4 +27,9 @@ export interface PageContext {
   navigate: (panel: PanelId) => void;
   /** Re-fetch the whole state from the server (after a config change). */
   reload: () => void;
+  /** gh and lark-cli session status; null until the first check answers. */
+  auth: AuthStatus | null;
+  refreshAuth: (fresh?: boolean) => Promise<void>;
+  /** Opens the sign-in dialog for a provider. */
+  openLogin: (provider: AuthProvider) => void;
 }

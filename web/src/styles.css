@@ -253,6 +253,26 @@ a.btn.primary:hover { color: #fff; }
 .att-name { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; font-size: 0.75rem; min-width: 0; }
 button.att { text-align: left; padding: 0; }
 
+/* ---- Authorization banner (under the header) and the Connections card ---- */
+.banner { display: flex; align-items: center; gap: 12px; padding: 8px 24px; font-size: 0.8125rem; border-bottom: 1px solid var(--border2); }
+.banner.error { background: var(--red-soft); color: var(--red); }
+.banner.warn { background: var(--amber-soft); color: var(--amber); }
+.banner b { font-weight: 600; }
+.banner svg { flex: none; }
+.banner .btn { margin-left: auto; height: 26px; padding: 0 10px; font-size: 0.75rem; color: var(--text); flex: none; }
+.conn { display: flex; flex-direction: column; gap: 10px; }
+.conn-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.875rem; }
+.conn-row.editing { grid-template-columns: 90px minmax(0, 1fr); align-items: start; }
+.conn-name { font-weight: 600; }
+.conn-status { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--muted); }
+.conn-status .dot { flex: none; }
+.conn-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.steps { display: flex; flex-direction: column; gap: 16px; font-size: 0.875rem; }
+.step { display: flex; flex-direction: column; gap: 8px; }
+.step-n { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
+.otp { font-size: 1.625rem; letter-spacing: 0.12em; padding: 8px 16px; border: 1px dashed var(--border); border-radius: 8px; background: var(--surface2); user-select: all; }
+.waiting { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.8125rem; }
+
 /* ---- Image lightbox over the record dialog ---- */
 .lightbox { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; background: rgba(6, 8, 12, 0.93); color: #e7e9ee; }
 .lb-top { display: flex; align-items: center; gap: 8px; padding: 10px 16px; min-height: 52px; box-sizing: border-box; }

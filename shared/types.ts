@@ -191,6 +191,44 @@ export interface SseMessage {
   events: Event[];
 }
 
+// ---- Authorization: the gh and lark-cli sessions the sources depend on ----
+export type AuthProvider = 'github' | 'lark';
+export interface ProviderStatus {
+  /** ok: signed in as expected; expired/missing: no usable session; wrong-account: gh is signed in as someone else; unknown: the CLI could not answer (offline, not installed). */
+  state: 'ok' | 'expired' | 'missing' | 'wrong-account' | 'unknown';
+  account: string | null;
+  /** GitHub only: the login the config expects. */
+  expected?: string;
+  /** Lark only: when the current session stops refreshing itself (ISO string), if lark-cli reports it. */
+  sessionUntil?: string | null;
+  detail: string | null;
+}
+export interface AuthStatus {
+  github: ProviderStatus;
+  lark: ProviderStatus;
+  checkedAt: number;
+}
+/** The Codemagic API token kept in config/secrets/.env, as the Settings page sees it (never the token itself). */
+export interface CodemagicTokenStatus {
+  configured: boolean;
+  /** First 3 and last 4 characters of the stored token. */
+  masked: string | null;
+  /** `codemagic.enabled` in the config; false means the panel is switched off regardless of the token. */
+  enabled: boolean;
+  /** Apps in the last successful poll, when there was one. */
+  apps: number | null;
+  /** Why the source is disabled, when it is. */
+  error: string | null;
+}
+/** A device-code sign-in driven by the server: the user copies `code` to `url`, the CLI waits, the server reports the outcome. */
+export interface LoginState {
+  phase: 'idle' | 'starting' | 'waiting' | 'done' | 'failed';
+  code?: string;
+  url?: string;
+  message?: string;
+  startedAt?: number;
+}
+
 // ---- UI ----
 export type PanelId = 'prs' | 'builds' | 'tasks' | 'issues' | 'feedback' | 'stores';
 export type Tone = 'red' | 'amber' | 'blue' | 'grey';

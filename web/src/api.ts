@@ -1,4 +1,4 @@
-import type { LarkAttachment, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LoginState, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
 
 const POST_HEADERS = { 'x-requested-with': 'dashboard' };
 
@@ -57,3 +57,18 @@ export async function removeStoreAccount(name: string): Promise<StoreAccountView
 export async function testStoreAccount(input: StoreAccountInput): Promise<StoreTestResult> {
   return json<StoreTestResult>(await fetch('/api/stores/test', { method: 'POST', headers: JSON_POST, body: JSON.stringify(input) }));
 }
+
+// ---- gh / lark-cli sessions (Settings → Connections, banner) ----
+export async function fetchAuthStatus(fresh = false): Promise<AuthStatus> {
+  return json<AuthStatus>(await fetch(`/api/auth/status${fresh ? '?fresh=1' : ''}`));
+}
+export const getLogin = async (provider: AuthProvider): Promise<LoginState> => json<LoginState>(await fetch(`/api/auth/${provider}/login`));
+export const startLogin = async (provider: AuthProvider): Promise<LoginState> => json<LoginState>(await fetch(`/api/auth/${provider}/login`, { method: 'POST', headers: POST_HEADERS }));
+export const cancelLogin = async (provider: AuthProvider): Promise<LoginState> => json<LoginState>(await fetch(`/api/auth/${provider}/login`, { method: 'DELETE', headers: POST_HEADERS }));
+export const switchGithubAccount = async (): Promise<AuthStatus> => json<AuthStatus>(await fetch('/api/auth/github/switch', { method: 'POST', headers: POST_HEADERS }));
+
+// ---- Codemagic API token (Settings → Connections) ----
+export const fetchCodemagicToken = async (): Promise<CodemagicTokenStatus> => json<CodemagicTokenStatus>(await fetch('/api/codemagic/token'));
+export const testCodemagicToken = async (token: string): Promise<{ apps: number }> => json<{ apps: number }>(await fetch('/api/codemagic/token/test', { method: 'POST', headers: JSON_POST, body: JSON.stringify({ token }) }));
+export const saveCodemagicToken = async (token: string): Promise<CodemagicTokenStatus> => json<CodemagicTokenStatus>(await fetch('/api/codemagic/token', { method: 'PUT', headers: JSON_POST, body: JSON.stringify({ token }) }));
+export const removeCodemagicToken = async (): Promise<CodemagicTokenStatus> => json<CodemagicTokenStatus>(await fetch('/api/codemagic/token', { method: 'DELETE', headers: POST_HEADERS }));

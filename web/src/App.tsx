@@ -1,10 +1,12 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { computeAttention } from '../../shared/attention';
 import { SOURCE_IDS } from '../../shared/types';
-import type { PanelId, SourceId } from '../../shared/types';
-import { fetchState, markSeen, openEvents, refreshSource } from './api';
+import type { AuthProvider, PanelId, SourceId } from '../../shared/types';
+import { fetchState, markSeen, openEvents, refreshSource, switchGithubAccount } from './api';
+import { AuthDialog } from './auth/AuthDialog';
+import { authProblems, useAuthStatus } from './auth/useAuthStatus';
 import { freshness } from './freshness';
-import { IconCheck, IconRefresh, IconReset, IconSliders } from './icons';
+import { IconAlert, IconCheck, IconRefresh, IconReset, IconSliders } from './icons';
 import { DEFAULT_LAYOUT, isDefaultLayout, isOnHome } from './layout/layout';
 import { useLayout } from './layout/useLayout';
 import { notifyHighEvents, toastable, updateTitle } from './notify';
@@ -99,7 +101,12 @@ export default function App() {
     });
   }, [state.events, state.loaded, settings.alertMode]);
 
-  const ctx: PageContext = { state, now, intervals, unread, showUnread, chips, settings, patchSettings, layout, setLayout, customizing, setCustomizing, seeIds, seeSource, navigate, reload: () => void load() };
+  const [auth, refreshAuth] = useAuthStatus(state.states);
+  const [authDialog, setAuthDialog] = useState<AuthProvider | null>(null);
+  const problems = authProblems(auth, state.states, now);
+  const switchAccount = () => void switchGithubAccount().then(() => refreshAuth(true)).catch(() => refreshAuth(true));
+
+  const ctx: PageContext = { state, now, intervals, unread, showUnread, chips, settings, patchSettings, layout, setLayout, customizing, setCustomizing, seeIds, seeSource, navigate, reload: () => void load(), auth, refreshAuth, openLogin: setAuthDialog };
   const cz = customizing && page === 'home';
 
   return (
@@ -148,12 +155,22 @@ export default function App() {
           </div>
         </header>
 
+        {problems.map((p) => (
+          <div key={p.provider} className={`banner ${p.severity}`} role="alert">
+            <IconAlert size={16} />
+            <span><b>{p.title}</b> · {p.detail}</span>
+            {p.action === 'switch'
+              ? <button className="btn" onClick={switchAccount}>Switch to {auth?.github.expected}</button>
+              : <button className="btn" onClick={() => setAuthDialog(p.provider)}>Re-authorize</button>}
+          </div>
+        ))}
         {state.error && <div className="stale red" role="alert">Could not load state: {state.error}</div>}
 
         {page === 'home' && <HomePage {...ctx} />}
         {page === 'builds' && <BuildsPage {...ctx} />}
         {page === 'stores' && <StoresPage {...ctx} />}
         {page === 'settings' && <SettingsPage {...ctx} />}
+        {authDialog && <AuthDialog provider={authDialog} onClose={() => setAuthDialog(null)} onDone={() => { void refreshAuth(true); void load(); }} />}
       </div>
     </div>
   );

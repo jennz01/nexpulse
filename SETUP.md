@@ -117,8 +117,9 @@ bun run startup:install
 | `running scripts is disabled on this system` | PowerShell's execution policy. Run the script exactly as shown, with `-ExecutionPolicy Bypass`; nothing is changed permanently. |
 | `winget` is not recognised | Install "App Installer" from the Microsoft Store, or install the tools by hand (Manual steps). |
 | A tool installs but the script says it is not on PATH | Close the terminal, open a new one, run the script again. |
-| `bun run check` says `gh active account is X, expected Y` | The config's `github.account` must be the login `gh` is signed in as: edit the config or `gh auth switch --user Y`. |
-| Lark rows say `run lark-cli auth login` | Sign in again with `lark-cli auth login`; the session expires occasionally. |
+| `bun run check` says `gh active account is X, expected Y` | The config's `github.account` must be the login `gh` is signed in as: edit the config, or open the dashboard's Settings → Connections and click Switch. |
+| Lark rows say `run lark-cli auth login`, or a red bar says a session expired | Open Settings → Connections and click Re-authorize (or run `lark-cli auth login` / `gh auth login` yourself). Lark sessions renew themselves for about a week of regular use, then need this once. |
+| Builds panel is off | Settings → Connections → Codemagic → Set token, or put `CODEMAGIC_API_TOKEN=` in `config\secrets\.env`. |
 | `Failed to start server. Is port 6600 in use?` | Something else owns the port, usually a previous server. `bun run startup:status` shows the owner; `bun run startup:restart` replaces it. Change `server.port` in the config if you need another port. |
 | Pull Requests panel is empty | Fine when nothing awaits you; `bun run check` shows the counts it found. |
 | App Store or Play rows DISABLED | Expected until credentials are added under Settings → Store accounts. |

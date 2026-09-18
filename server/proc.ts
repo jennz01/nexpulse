@@ -37,7 +37,7 @@ export function resolveCommand(
  * which would otherwise hang `run()` forever. `taskkill /T` kills the whole tree; `proc.kill()`
  * is kept as a fallback in case taskkill is unavailable or fails.
  */
-function killTree(proc: Subprocess): void {
+export function killTree(proc: Subprocess): void {
   if (process.platform === 'win32') {
     Bun.spawnSync(['taskkill', '/PID', String(proc.pid), '/T', '/F']);
   }

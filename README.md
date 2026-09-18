@@ -117,7 +117,11 @@ The sidebar switches between three pages, each with its own URL: Home (`#/`, pul
 Server output goes to `data/server.log`; the previous session's log is kept as `data/server.prev.log`. A PowerShell window may flash for a moment at logon before it hides. The scripts live in `scripts/serve.ps1` (the supervisor) and `scripts/startup.ps1` (task management).
 ## Settings
 
-Gear icon, top right. Alerts: Windows toast (native notification for high-priority events; needs one-time permission), in-page badges only, or off. Appearance: theme light / dark / auto, font size small / medium / large, density comfortable / compact. Stored per browser.
+Settings is the last item in the sidebar.
+
+**Connections** shows the three logins the sources depend on and lets you fix them without a terminal. GitHub and Lark are the `gh` and `lark-cli` sign-ins on this PC: each row says who is signed in (and, for Lark, until when the session renews itself) with an Authorize / Re-authorize button that runs the CLI's own device-code sign-in for you: copy the one-time code, open the verification page, approve, and the panel refreshes on its own. If `gh` is signed in as a different account than `github.account`, a Switch button runs `gh auth switch`. Codemagic takes its API token here: Set token → paste → Test → Save writes it to `config/secrets/.env` and starts polling at once; Remove clears it. Status is re-checked every five minutes, when the window regains focus, and as soon as a poll fails with an authorization error. When a session has expired, a red bar under the header on every page says which panels stopped updating and offers Re-authorize; an amber bar warns when the Lark session ends within two days.
+
+Alerts: Windows toast (native notification for high-priority events; needs one-time permission), in-page badges only, or off. Appearance: theme light / dark / auto, font size small / medium / large, density comfortable / compact. Stored per browser.
 
 ## Customizing the Home page
 

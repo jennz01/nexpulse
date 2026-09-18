@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { LarkTableKey } from './config';
 import { SOURCE_IDS } from '../shared/types';
-import type { NewEvent, PublicConfig, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LoginState, NewEvent, PublicConfig, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
 import { AccountInputError } from './accounts';
 import type { StoreAccounts } from './accounts';
 import type { Scheduler } from './scheduler';
@@ -15,6 +15,23 @@ export interface CodemagicActions {
   trigger(input: { appId: string; workflowId: string; branch: string }): Promise<{ buildId: string }>;
   /** Streams the artifact body with the auth token added server-side. */
   artifact(buildId: string, index: number): Promise<Response>;
+}
+
+export interface AuthActions {
+  status(fresh: boolean): Promise<AuthStatus>;
+  login(provider: AuthProvider): LoginState;
+  startLogin(provider: AuthProvider): Promise<LoginState>;
+  cancelLogin(provider: AuthProvider): LoginState;
+  switchGithub(): Promise<AuthStatus>;
+}
+const isProvider = (p: string): p is AuthProvider => p === 'github' || p === 'lark';
+
+export interface CodemagicTokenActions {
+  status(): Promise<CodemagicTokenStatus>;
+  /** Resolves to the number of apps the token can see; throws with the reason otherwise. */
+  test(token: string): Promise<number>;
+  save(token: string): Promise<CodemagicTokenStatus>;
+  remove(): Promise<CodemagicTokenStatus>;
 }
 
 export interface LarkActions {
@@ -32,6 +49,8 @@ export interface AppDeps {
   disabled: Partial<Record<SourceId, string>>;
   codemagic?: CodemagicActions;
   lark?: LarkActions;
+  auth?: AuthActions;
+  codemagicToken?: CodemagicTokenActions;
   /** Store account management for the Settings page; absent in tests and `bun run check`. */
   accounts?: StoreAccounts;
   /** SSE keep-alive interval in ms; tests shorten it so no long timer outlives them. */
@@ -149,6 +168,49 @@ export function createApp(deps: AppDeps): Hono {
   };
   app.get('/api/lark/attachments/:table/:recordId/:token/:name', attachment);
   app.get('/api/lark/attachments/:table/:recordId/:token', attachment);
+
+  // ---- gh / lark-cli sessions: status and server-driven device-code sign-ins ----
+  app.get('/api/auth/status', async (c) => {
+    if (!deps.auth) return c.json({ error: 'not available' }, 409);
+    return c.json(await deps.auth.status(c.req.query('fresh') === '1'));
+  });
+  const withProvider = (c: Context): AuthProvider | null => { const p = c.req.param('provider') ?? ''; return isProvider(p) ? p : null; };
+  app.get('/api/auth/:provider/login', (c) => {
+    const p = withProvider(c);
+    if (!deps.auth || !p) return c.json({ error: 'unknown provider' }, 404);
+    return c.json(deps.auth.login(p));
+  });
+  app.post('/api/auth/:provider/login', async (c) => {
+    const p = withProvider(c);
+    if (!deps.auth || !p) return c.json({ error: 'unknown provider' }, 404);
+    return c.json(await deps.auth.startLogin(p));
+  });
+  app.delete('/api/auth/:provider/login', (c) => {
+    const p = withProvider(c);
+    if (!deps.auth || !p) return c.json({ error: 'unknown provider' }, 404);
+    return c.json(deps.auth.cancelLogin(p));
+  });
+  app.post('/api/auth/github/switch', async (c) => {
+    if (!deps.auth) return c.json({ error: 'not available' }, 409);
+    try { return c.json(await deps.auth.switchGithub()); } catch (e) { return c.json({ error: (e as Error).message }, 502); }
+  });
+
+  // ---- Codemagic API token, kept in config/secrets/.env ----
+  app.get('/api/codemagic/token', async (c) => (deps.codemagicToken ? c.json(await deps.codemagicToken.status()) : c.json({ error: 'not available' }, 409)));
+  app.post('/api/codemagic/token/test', async (c) => {
+    if (!deps.codemagicToken) return c.json({ error: 'not available' }, 409);
+    const body = (await c.req.json().catch(() => ({}))) as { token?: unknown };
+    try { return c.json({ apps: await deps.codemagicToken.test(String(body.token ?? '')) }); } catch (e) { return c.json({ error: (e as Error).message }, 400); }
+  });
+  app.put('/api/codemagic/token', async (c) => {
+    if (!deps.codemagicToken) return c.json({ error: 'not available' }, 409);
+    const body = (await c.req.json().catch(() => ({}))) as { token?: unknown };
+    try { return c.json(await deps.codemagicToken.save(String(body.token ?? ''))); } catch (e) { return c.json({ error: (e as Error).message }, 400); }
+  });
+  app.delete('/api/codemagic/token', async (c) => {
+    if (!deps.codemagicToken) return c.json({ error: 'not available' }, 409);
+    try { return c.json(await deps.codemagicToken.remove()); } catch (e) { return c.json({ error: (e as Error).message }, 500); }
+  });
 
   app.get('/api/stores/accounts', (c) => {
     if (!deps.accounts) return c.json({ error: 'account management is not available in this process' }, 501);
