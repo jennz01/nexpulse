@@ -42,7 +42,7 @@ Accounts and credentials, all optional except the first two:
 
    ```powershell
    git clone https://github.com/jennz01/nexpulse.git
-   cd NexPulse
+   cd nexpulse
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
    ```
 
@@ -87,7 +87,7 @@ Server output goes to `data\server.log`. If the page shows "reconnecting…" for
 ## Update to a newer version
 
 ```powershell
-cd NexPulse
+cd nexpulse
 git pull
 bun install
 bun run build
@@ -100,7 +100,7 @@ bun run startup:restart
 winget install Git.Git Oven-sh.Bun GitHub.cli OpenJS.NodeJS.LTS   # open a new window afterwards
 npm install -g @larksuite/cli
 git clone https://github.com/jennz01/nexpulse.git
-cd NexPulse
+cd nexpulse
 bun install
 copy config\dashboard.config.example.json config\dashboard.config.json   # then edit it
 gh auth login

@@ -8,7 +8,7 @@ Design spec: `docs/superpowers/specs/2026-09-17-personal-dashboard-design.md`. T
 
 ```powershell
 git clone https://github.com/jennz01/nexpulse.git
-cd NexPulse
+cd nexpulse
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
 ```
 
