@@ -73,3 +73,35 @@ export async function run(cmd: string, args: string[], opts: RunOptions = {}): P
     clearTimeout(timer);
   }
 }
+
+/** The `{ ok: false, error: { type, subtype, message, hint } }` envelope lark-cli (and sometimes gh) prints, pretty-printed, to stderr; null when the text holds none. */
+export function cliEnvelope(text: string): { type?: string; subtype?: string; message?: string; hint?: string } | null {
+  const start = text.indexOf('{');
+  const end = text.lastIndexOf('}');
+  if (start === -1 || end <= start) return null;
+  try {
+    const json = JSON.parse(text.slice(start, end + 1)) as { error?: unknown; message?: unknown; msg?: unknown };
+    const err = (json.error && typeof json.error === 'object' ? json.error : {}) as Record<string, unknown>;
+    const str = (v: unknown): string | undefined => (typeof v === 'string' && v ? v : undefined);
+    const message = str(err.message) ?? str(json.message) ?? str(json.msg);
+    if (!message && !str(err.type)) return null;
+    return { type: str(err.type), subtype: str(err.subtype), message, hint: str(err.hint) };
+  } catch {
+    return null;
+  }
+}
+
+/** One human line out of a CLI's output: the envelope's message when there is one, else the first line that is not a lone brace. */
+export function cliMessage(text: string, fallback: string): string {
+  const env = cliEnvelope(text);
+  if (env?.message) return env.message;
+  const line = text.split(/\r?\n/).map((l) => l.trim()).find((l) => l && l !== '{' && l !== '}');
+  return line ?? fallback;
+}
+
+/** lark-cli before its one-time `lark-cli config init` on this PC: every command fails with a not_configured envelope. */
+export function isNotConfigured(text: string): boolean {
+  const env = cliEnvelope(text);
+  if (env) return env.subtype === 'not_configured' || (env.type === 'config' && /not configured/i.test(env.message ?? ''));
+  return /not configured/i.test(text) && /config init/i.test(text);
+}

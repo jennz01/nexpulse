@@ -104,6 +104,7 @@ if ($NoStartup) {
   Step 'Done (startup task skipped)'
   Write-Host '   Start it by hand with `bun run start`, or register the logon task later with `bun run startup:install`.'
   Write-Host '   Then open http://127.0.0.1:6600, Settings, Connections, and click Authorize for GitHub and for Lark.'
+  Write-Host '   The first time on a PC, Lark also needs a one-time `lark-cli config init --brand lark` in a terminal; the Lark row there explains when.'
 } elseif ($NoBuild) {
   Step 'Done (startup task skipped: nothing is built to serve)'
   Write-Host '   Run `bun run dev` for development, or `bun run build` then `bun run startup:install`.'
@@ -113,5 +114,6 @@ if ($NoStartup) {
   Step 'Done'
   Write-Host '   The dashboard is running at http://127.0.0.1:6600 and will start again at every sign-in.'
   Write-Host '   Next: open it, go to Settings, Connections and click Authorize for GitHub and for Lark (each is a short browser step).'
+  Write-Host '   The first time on a PC, Lark also needs a one-time `lark-cli config init --brand lark` in a terminal; the Lark row there explains when.'
   Write-Host '   After editing config\dashboard.config.json: bun run startup:restart'
 }

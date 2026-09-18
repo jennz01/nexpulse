@@ -30,7 +30,7 @@ export interface AuthProblem {
   severity: 'error' | 'warn';
   title: string;
   detail: string;
-  action: 'login' | 'switch';
+  action: 'login' | 'switch' | 'setup';
 }
 
 const SOON_MS = 48 * 3600_000;
@@ -49,7 +49,9 @@ export function authProblems(status: AuthStatus | null, states: SourceStates, no
   } else if (gh?.state === 'expired' || gh?.state === 'missing' || (gh?.state !== 'ok' && looksLikeAuthError(states.github.error))) {
     out.push({ provider: 'github', severity: 'error', title: 'GitHub session expired', detail: `Pull Requests ${stalled(states.github)}`, action: 'login' });
   }
-  if (lk?.state === 'expired' || lk?.state === 'missing' || (lk?.state !== 'ok' && looksLikeAuthError(states.lark.error))) {
+  if (lk?.state === 'unconfigured') {
+    out.push({ provider: 'lark', severity: 'error', title: 'Lark is not set up on this PC', detail: 'one-time lark-cli config init needed; Tasks, Issues and Merchant Feedback stay off until then', action: 'setup' });
+  } else if (lk?.state === 'expired' || lk?.state === 'missing' || (lk?.state !== 'ok' && looksLikeAuthError(states.lark.error))) {
     out.push({ provider: 'lark', severity: 'error', title: 'Lark session expired', detail: `Tasks, Issues and Merchant Feedback ${stalled(states.lark)}`, action: 'login' });
   } else if (lk?.state === 'ok' && lk.sessionUntil) {
     const until = Date.parse(lk.sessionUntil);

@@ -20,7 +20,7 @@ The stack is Bun + Hono on the server and React + Vite on the web side (no Next.
 - Bun 1.3+ (`bun --version`)
 - Node.js 16 or newer with npm (`node --version`), only to install and run lark-cli; the build and dev server run on Bun
 - GitHub CLI (`gh`). Sign in from the dashboard's Settings → Connections or with `gh auth login`; the login it signs in as is saved to `github.account` in the config the first time (set it yourself only to pin a different account)
-- lark-cli 1.0.49+. Sign in from Settings → Connections or with `lark-cli auth login`
+- lark-cli 1.0.49+. Once per PC it needs its app configuration (`lark-cli config init --brand lark`, with the team's App ID and App Secret, or `--new` for an app of your own); then sign in from Settings → Connections or with `lark-cli auth login`
 - A Codemagic API token, one App Store Connect API key per Apple developer account, one Google Play service account per Play developer account (steps below)
 
 ## First-time setup

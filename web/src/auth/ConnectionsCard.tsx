@@ -16,7 +16,7 @@ interface Props {
 }
 
 type Tone = 'green' | 'amber' | 'red' | 'grey';
-const tone = (s: ProviderStatus | undefined): Tone => (!s || s.state === 'unknown' ? 'grey' : s.state === 'ok' ? 'green' : s.state === 'wrong-account' ? 'amber' : 'red');
+const tone = (s: ProviderStatus | undefined): Tone => (!s || s.state === 'unknown' ? 'grey' : s.state === 'ok' ? 'green' : s.state === 'wrong-account' || s.state === 'unconfigured' ? 'amber' : 'red');
 
 function describe(s: ProviderStatus | undefined, provider: AuthProvider): string {
   if (!s) return 'Checking…';
@@ -25,6 +25,7 @@ function describe(s: ProviderStatus | undefined, provider: AuthProvider): string
     case 'wrong-account': return `Signed in as ${s.account} · the dashboard tracks ${s.expected}`;
     case 'expired': return `Session expired${s.detail ? ` · ${s.detail}` : ''}`;
     case 'missing': return 'Not signed in';
+    case 'unconfigured': return 'Not set up on this PC yet · needs a one-time lark-cli config init';
     default: return `Could not check${s.detail ? ` · ${s.detail}` : ''}`;
   }
 }
@@ -46,7 +47,7 @@ export function ConnectionsCard({ status, onRefresh, openLogin, onCodemagicChang
             <button className={`btn ${gh && gh.state !== 'ok' && gh.state !== 'wrong-account' ? 'primary' : ''}`} onClick={() => openLogin('github')}>{gh?.state === 'ok' || gh?.state === 'wrong-account' ? 'Re-authorize' : 'Authorize'}</button>
           </>} />
         <Row name="Lark" tone={tone(lk)} text={describe(lk, 'lark')}
-          actions={<button className={`btn ${lk && lk.state !== 'ok' ? 'primary' : ''}`} onClick={() => openLogin('lark')}>{lk?.state === 'ok' ? 'Re-authorize' : 'Authorize'}</button>} />
+          actions={<button className={`btn ${lk && lk.state !== 'ok' ? 'primary' : ''}`} onClick={() => openLogin('lark')}>{lk?.state === 'ok' ? 'Re-authorize' : lk?.state === 'unconfigured' ? 'Set up' : 'Authorize'}</button>} />
         <CodemagicRow onChanged={onCodemagicChanged} />
       </div>
       <span className="hint">

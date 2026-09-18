@@ -1,7 +1,7 @@
 import type { Subprocess } from 'bun';
 import type { AuthProvider, AuthStatus, LoginState, ProviderStatus } from '../shared/types';
 import { isUnsetGithubAccount } from './config';
-import { killTree, resolveCommand, run } from './proc';
+import { cliMessage, isNotConfigured, killTree, resolveCommand, run } from './proc';
 import type { Runner } from './sources/types';
 
 export interface AuthOptions {
@@ -23,6 +23,8 @@ const AUTH_ERROR = /auth login|not logged|authentication|token|HTTP 401|unauthor
 
 interface Flow { state: LoginState; proc: Subprocess | null; timer: ReturnType<typeof setTimeout> | null }
 const idle = (): Flow => ({ state: { phase: 'idle' }, proc: null, timer: null });
+/** lark-cli has never been set up on this PC (`lark-cli config init`): the dialog shows the one-time steps instead of a code. */
+class NotConfiguredError extends Error {}
 
 /**
  * Owns the two CLI sessions the sources depend on. `status()` asks gh and lark-cli who is signed in (cached for a
@@ -62,7 +64,7 @@ export class AuthManager {
       else await this.startLark(flow);
     } catch (e) {
       this.clear(flow);
-      flow.state = { ...flow.state, phase: 'failed', message: (e as Error).message };
+      flow.state = { ...flow.state, phase: 'failed', message: (e as Error).message, ...(e instanceof NotConfiguredError ? { unconfigured: true } : {}) };
     }
     return flow.state;
   }
@@ -90,7 +92,7 @@ export class AuthManager {
     const res = await this.runner('gh', ['api', 'user', '-q', '.login'], { timeoutMs: 20_000 });
     if (res.timedOut) return { state: 'unknown', account: null, expected, detail: 'gh did not answer within 20 s' };
     if (res.code !== 0) {
-      const text = firstLine(res.stderr || res.stdout) || `gh exited ${res.code}`;
+      const text = cliMessage(res.stderr || res.stdout, `gh exited ${res.code}`);
       return { state: AUTH_ERROR.test(text) ? 'expired' : 'unknown', account: null, expected, detail: text };
     }
     const login = res.stdout.trim();
@@ -111,7 +113,9 @@ export class AuthManager {
     try { json = JSON.parse(res.stdout); } catch { json = null; }
     const user = json?.identities?.user;
     if (!user) {
-      const text = firstLine(res.stderr || res.stdout) || `lark-cli exited ${res.code}`;
+      const raw = `${res.stderr}\n${res.stdout}`;
+      if (isNotConfigured(raw)) return { state: 'unconfigured', account: null, detail: 'lark-cli has no Lark app configured on this PC yet (one-time `lark-cli config init`)' };
+      const text = cliMessage(raw, `lark-cli exited ${res.code}`);
       return { state: res.code === 0 ? 'missing' : AUTH_ERROR.test(text) ? 'expired' : 'unknown', account: null, detail: text };
     }
     if (typeof user.scope === 'string' && user.scope) this.larkScope = user.scope;
@@ -149,8 +153,9 @@ export class AuthManager {
     let json: Record<string, unknown> | null = null;
     try { json = JSON.parse(res.stdout); } catch { json = null; }
     if (!json || json.ok === false) {
-      const err = (json?.error ?? {}) as { message?: string };
-      throw new Error(err.message ?? firstLine(res.stderr || res.stdout) ?? `lark-cli exited ${res.code}`);
+      const raw = `${res.stderr}\n${res.stdout}`;
+      if (isNotConfigured(raw)) throw new NotConfiguredError('lark-cli has no Lark app configured on this PC yet. Run `lark-cli config init --brand lark` once in a terminal, then try again.');
+      throw new Error(cliMessage(raw, `lark-cli exited ${res.code}`));
     }
     const data = (json.data && typeof json.data === 'object' ? json.data : json) as Record<string, unknown>;
     const deviceCode = str(data.device_code) ?? str(data.deviceCode);

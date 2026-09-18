@@ -161,7 +161,7 @@ export default function App() {
             <span><b>{p.title}</b> · {p.detail}</span>
             {p.action === 'switch'
               ? <button className="btn" onClick={switchAccount}>Switch to {auth?.github.expected}</button>
-              : <button className="btn" onClick={() => setAuthDialog(p.provider)}>Re-authorize</button>}
+              : <button className="btn" onClick={() => setAuthDialog(p.provider)}>{p.action === 'setup' ? 'Set up' : 'Re-authorize'}</button>}
           </div>
         ))}
         {state.error && <div className="stale red" role="alert">Could not load state: {state.error}</div>}

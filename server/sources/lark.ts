@@ -1,5 +1,6 @@
 import type { LarkAttachment, LarkGroup, LarkRecord, LarkSnapshot, NewEvent } from '../../shared/types';
 import type { LarkConfig, LarkTableKey } from '../config';
+import { cliMessage } from '../proc';
 import { SourceError } from './types';
 import type { Runner, Source, SourceContext } from './types';
 
@@ -175,7 +176,8 @@ export function diffLark(prev: LarkSnapshot | null, next: LarkSnapshot, openStat
 }
 
 export const larkHint = (text: string): string | undefined =>
-  /token|auth|login|permission|forbidden|99991|not logged/i.test(text) ? 'run `lark-cli auth login`' : undefined;
+  /not configured|config init/i.test(text) ? 'run `lark-cli config init` once on this PC (Settings → Connections shows the steps)'
+  : /token|auth|login|permission|forbidden|99991|not logged/i.test(text) ? 'run `lark-cli auth login`' : undefined;
 const firstLine = (s: string) => s.trim().split(/\r?\n/)[0] ?? '';
 
 export async function listRecords(run: Runner, cfg: LarkConfig, key: LarkTableKey): Promise<RawRecord[]> {
@@ -198,7 +200,7 @@ export async function listRecords(run: Runner, cfg: LarkConfig, key: LarkTableKe
     ];
     const res = await run('lark-cli', args);
     if (res.timedOut) throw new SourceError(`lark-cli timed out reading ${key}`);
-    if (res.code !== 0) throw new SourceError(`lark-cli exited ${res.code} reading ${key}: ${firstLine(res.stderr || res.stdout)}`, larkHint(res.stderr + res.stdout));
+    if (res.code !== 0) throw new SourceError(`lark-cli exited ${res.code} reading ${key}: ${cliMessage(res.stderr || res.stdout, 'no output')}`, larkHint(res.stderr + res.stdout));
     let json: unknown;
     try {
       json = JSON.parse(res.stdout);

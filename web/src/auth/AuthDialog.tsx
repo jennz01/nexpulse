@@ -5,6 +5,8 @@ import { IconCheck, IconClose, IconCopy, IconExternal } from '../icons';
 
 const LABEL: Record<AuthProvider, string> = { github: 'GitHub', lark: 'Lark' };
 const TOOL: Record<AuthProvider, string> = { github: 'gh auth login', lark: 'lark-cli auth login' };
+/** The one-time lark-cli app configuration a PC needs before any Lark sign-in; shown when the server reports `unconfigured`. */
+const LARK_SETUP = 'lark-cli config init --brand lark';
 
 interface Props {
   provider: AuthProvider;
@@ -47,6 +49,7 @@ export function AuthDialog({ provider, onClose, onDone }: Props) {
   const failed = state.phase === 'failed' || !!error;
   const finished = state.phase === 'done' || failed;
   const copy = () => { if (state.code) void navigator.clipboard?.writeText(state.code).then(() => setCopied(true)); };
+  const copySetup = () => { void navigator.clipboard?.writeText(LARK_SETUP).then(() => setCopied(true)); };
   const cancel = () => { void cancelLogin(provider); onClose(); };
   const host = (() => { try { return state.url ? new URL(state.url).host : ''; } catch { return state.url ?? ''; } })();
   const n = (i: number) => (state.code ? i : i - 1);
@@ -55,7 +58,7 @@ export function AuthDialog({ provider, onClose, onDone }: Props) {
     <div className="backdrop" onClick={finished ? onClose : undefined}>
       <div className="dlg" role="dialog" aria-modal="true" aria-label={`Authorize ${LABEL[provider]}`} onClick={(e) => e.stopPropagation()}>
         <div className="dlg-h">
-          <span>{state.phase === 'done' ? `${LABEL[provider]} connected` : `Authorize ${LABEL[provider]}`}</span>
+          <span>{state.phase === 'done' ? `${LABEL[provider]} connected` : state.unconfigured ? `Set up ${LABEL[provider]}` : `Authorize ${LABEL[provider]}`}</span>
           <button className="iconbtn sm" title="Close" onClick={finished ? onClose : cancel}><IconClose size={14} /></button>
         </div>
         <div className="dlg-body">
@@ -82,7 +85,27 @@ export function AuthDialog({ provider, onClose, onDone }: Props) {
             </div>
           )}
           {state.phase === 'done' && <span className="ok"><IconCheck size={14} />Signed in. The panels refresh in a moment.</span>}
-          {failed && <div className="error">{error ?? state.message ?? 'Sign-in failed.'}</div>}
+          {failed && state.unconfigured && (
+            <div className="steps">
+              <span>lark-cli has no Lark app configured on this PC yet. That is a one-time step in a terminal; the dashboard cannot do it for you.</span>
+              <div className="step">
+                <span className="step-n">1 · Open PowerShell or Git Bash and run</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <code className="mono" style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface2)' }}>{LARK_SETUP}</code>
+                  <button className="btn" onClick={copySetup}><IconCopy size={14} />{copied ? 'Copied' : 'Copy'}</button>
+                </div>
+              </div>
+              <div className="step">
+                <span className="step-n">2 · Answer its prompts</span>
+                <span>To share the team's app, choose the existing-app option and paste the App ID and App Secret the dashboard owner gives you. To use your own app instead, run it with <code className="mono">--new</code> and finish in the browser link it prints. Feishu tenants use <code className="mono">--brand feishu</code>.</span>
+              </div>
+              <div className="step">
+                <span className="step-n">3 · Come back and click Try again</span>
+                <span>The usual code-and-link sign-in follows.</span>
+              </div>
+            </div>
+          )}
+          {failed && !state.unconfigured && <div className="error">{error ?? state.message ?? 'Sign-in failed.'}</div>}
         </div>
         <div className="dlg-f">
           {failed && <button className="btn" onClick={() => setAttempt((a) => a + 1)}>Try again</button>}

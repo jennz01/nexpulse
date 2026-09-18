@@ -206,8 +206,8 @@ export interface SseMessage {
 // ---- Authorization: the gh and lark-cli sessions the sources depend on ----
 export type AuthProvider = 'github' | 'lark';
 export interface ProviderStatus {
-  /** ok: signed in as expected; expired/missing: no usable session; wrong-account: gh is signed in as someone else; unknown: the CLI could not answer (offline, not installed). */
-  state: 'ok' | 'expired' | 'missing' | 'wrong-account' | 'unknown';
+  /** ok: signed in as expected; expired/missing: no usable session; wrong-account: gh is signed in as someone else; unconfigured: lark-cli has never been set up on this PC (one-time `lark-cli config init`); unknown: the CLI could not answer (offline, not installed). */
+  state: 'ok' | 'expired' | 'missing' | 'wrong-account' | 'unconfigured' | 'unknown';
   account: string | null;
   /** GitHub only: the login the config expects. */
   expected?: string;
@@ -239,6 +239,8 @@ export interface LoginState {
   url?: string;
   message?: string;
   startedAt?: number;
+  /** Lark: lark-cli has no app configured on this PC; the dialog shows the one-time setup steps instead of a code. */
+  unconfigured?: boolean;
 }
 
 // ---- UI ----

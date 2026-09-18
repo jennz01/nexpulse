@@ -30,7 +30,7 @@ Accounts and credentials, all optional except the first two:
 | Account | Needed for | Where to get it |
 |---|---|---|
 | A GitHub account | Pull Requests panel | Settings → Connections → Authorize, after setup |
-| A Lark account with access to the Base | Tasks, Issues, Merchant Feedback | Settings → Connections → Authorize, after setup |
+| A Lark account with access to the Base, plus the team's Lark app (App ID and App Secret) for the one-time `lark-cli config init` | Tasks, Issues, Merchant Feedback | Settings → Connections → Authorize, after setup |
 | Codemagic API token | Builds panel | Codemagic → Teams → Personal Account → Integrations → Codemagic API |
 | App Store Connect API key (`.p8`) | Stores panel, iOS column | App Store Connect → Users and Access → Integrations → Team Keys |
 | Google Play service account (JSON) | Stores panel, Android column | Google Cloud Console → IAM → Service Accounts, then invite it in Play Console |
@@ -55,7 +55,7 @@ Accounts and credentials, all optional except the first two:
    - creates `config\dashboard.config.json` from the example if you have none, and a `config\secrets\.env` template;
    - builds the UI, runs `bun run check` to call every source once, and registers the start-at-logon task, which also starts the server right away.
 
-4. Open http://127.0.0.1:6600, go to **Settings → Connections** and click **Authorize** for GitHub and for Lark. Each runs the CLI's own device-code sign-in inside the page: copy the code, approve it in the browser. The dashboard saves the GitHub login it signed in as into the config, so nothing needs editing for that. The Pull Requests panel works as soon as GitHub is authorized. The Lark panels also need the table ids from the next section, and Builds and Stores need their credentials; until then those rows read DISABLED in `bun run check`, which is expected.
+4. Open http://127.0.0.1:6600, go to **Settings → Connections** and click **Authorize** for GitHub and for Lark. Each runs the CLI's own device-code sign-in inside the page: copy the code, approve it in the browser. The dashboard saves the GitHub login it signed in as into the config, so nothing needs editing for that. Lark has one extra step the first time on a PC: lark-cli needs its app configuration, so the Lark row reads "Not set up on this PC yet" and its dialog shows what to do: run `lark-cli config init --brand lark` in a terminal, answer its prompts (existing team app: paste the App ID and App Secret from the dashboard owner; or `--new` to create your own app in the browser), then click Try again. The Pull Requests panel works as soon as GitHub is authorized. The Lark panels also need the table ids from the next section, and Builds and Stores need their credentials; until then those rows read DISABLED in `bun run check`, which is expected.
 
 Re-running the script is safe: every step checks before it changes anything. Two switches exist: `-NoStartup` does everything except the logon task, `-NoBuild` skips the UI build for a machine that will use `bun run dev` instead. Both work from either shell; `bash scripts/setup.sh -NoStartup` passes them through unchanged.
 
@@ -121,6 +121,7 @@ bun run startup:install
 | A tool installs but the script says it is not on PATH | Close the terminal, open a new one, run the script again. |
 | `bun run check` says `gh active account is X, expected Y` | The config's `github.account` must be the login `gh` is signed in as: edit the config, or open the dashboard's Settings → Connections and click Switch. |
 | Lark rows say `run lark-cli auth login`, or a red bar says a session expired | Open Settings → Connections and click Re-authorize (or run `lark-cli auth login` / `gh auth login` yourself). Lark sessions renew themselves for about a week of regular use, then need this once. |
+| Lark row says `Not set up on this PC yet`, or `bun run check` says `not configured` for lark | lark-cli has never been configured on this PC. Run `lark-cli config init --brand lark` once in a terminal and answer its prompts (the Set up button in Connections lists the steps), then Authorize. |
 | Builds panel is off | Settings → Connections → Codemagic → Set token, or put `CODEMAGIC_API_TOKEN=` in `config\secrets\.env`. |
 | `Failed to start server. Is port 6600 in use?` | Something else owns the port, usually a previous server. `bun run startup:status` shows the owner; `bun run startup:restart` replaces it. Change `server.port` in the config if you need another port. |
 | Pull Requests panel is empty | Fine when nothing awaits you; `bun run check` shows the counts it found. |
