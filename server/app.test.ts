@@ -8,7 +8,7 @@ import type { SSEStreamingApi } from 'hono/streaming';
 
 const publicConfig: PublicConfig = {
   intervals: { github: 60, codemagic: 120, lark: 120, appstore: 600, playstore: 600 },
-  larkDomain: 'example.larksuite.com', accounts: [], pendingLaunchStatus: 'PENDING TO LAUNCH', collapsedStatuses: ['PRODUCTION'], showIssueStatuses: ['OPEN', 'CHECKING'], taskFormUrl: null, feedbackGroupOrder: [],
+  larkDomain: 'example.larksuite.com', accounts: [], pendingLaunchStatus: 'PENDING TO LAUNCH', collapsedStatuses: ['PRODUCTION'], showIssueStatuses: ['OPEN', 'CHECKING'], taskFormUrl: null, feedbackGroupOrder: [], githubRepos: [],
 };
 
 let store: Store;

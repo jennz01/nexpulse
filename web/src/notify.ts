@@ -28,5 +28,5 @@ export function toastable(events: Event[], seen: Set<number>, firstLoad: boolean
 }
 
 export function updateTitle(unread: number, mode: AlertMode): void {
-  document.title = mode === 'off' || unread === 0 ? 'Dashboard' : `(${unread}) Dashboard`;
+  document.title = mode === 'off' || unread === 0 ? 'NexPulse' : `(${unread}) NexPulse`;
 }

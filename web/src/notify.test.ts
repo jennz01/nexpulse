@@ -5,9 +5,9 @@ import type { Event } from '../../shared/types';
 const ev = (id: number, priority: 'high' | 'normal'): Event => ({ id, source: 'github', kind: 'pr.review_requested', priority, itemId: `i${id}`, title: `T${id}`, url: null, createdAt: 0, seen: false });
 
 test('updateTitle shows the unread count unless alerts are off', () => {
-  updateTitle(3, 'badge'); expect(document.title).toBe('(3) Dashboard');
-  updateTitle(3, 'off'); expect(document.title).toBe('Dashboard');
-  updateTitle(0, 'toast'); expect(document.title).toBe('Dashboard');
+  updateTitle(3, 'badge'); expect(document.title).toBe('(3) NexPulse');
+  updateTitle(3, 'off'); expect(document.title).toBe('NexPulse');
+  updateTitle(0, 'toast'); expect(document.title).toBe('NexPulse');
 });
 
 test('notifyHighEvents fires one notification per high event in toast mode only', () => {

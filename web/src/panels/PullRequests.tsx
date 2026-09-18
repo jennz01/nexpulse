@@ -4,7 +4,17 @@ import { unreadItems } from '../state';
 import { relativeTime } from '../time';
 import { openItem } from './open';
 
-interface Props { snapshot: GithubSnapshot | null; events: Event[]; onSee: (ids: number[]) => void; now: number }
+interface Props {
+  snapshot: GithubSnapshot | null;
+  events: Event[];
+  onSee: (ids: number[]) => void;
+  now: number;
+  /** Repositories chosen in Settings; the All tab lists their open PRs. */
+  repos: string[];
+}
+
+type Tab = 'incoming' | 'mine' | 'all';
+const TABS: { id: Tab; label: string }[] = [{ id: 'incoming', label: 'Review requested' }, { id: 'mine', label: 'Mine' }, { id: 'all', label: 'All' }];
 
 function DecisionTag({ pr }: { pr: PullRequest }) {
   if (pr.isDraft) return <span className="tag plain">Draft</span>;
@@ -20,31 +30,37 @@ function CiDot({ ci }: { ci: CiState }) {
   return <i className="dot red" title="CI failing" />;
 }
 
-export function PullRequests({ snapshot, events, onSee, now }: Props) {
-  const [tab, setTab] = useState<'incoming' | 'mine'>('incoming');
+export function PullRequests({ snapshot, events, onSee, now, repos }: Props) {
+  const [tab, setTab] = useState<Tab>('incoming');
   if (!snapshot) return <div className="note">Waiting for the first GitHub poll…</div>;
   const unread = unreadItems(events, 'prs');
-  const list = snapshot[tab];
+  const lists: Record<Tab, PullRequest[]> = { incoming: snapshot.incoming, mine: snapshot.mine, all: snapshot.all ?? [] };
+  const list = lists[tab];
+  const empty = tab === 'incoming' ? 'No PRs waiting for your review.'
+    : tab === 'mine' ? 'No open PRs of yours.'
+    : repos.length === 0 ? <>No repositories chosen yet. <a href="#/settings">Pick them in Settings → Pull requests</a>.</>
+    : `No open PRs in the ${repos.length === 1 ? 'selected repository' : `${repos.length} selected repositories`}.`;
   return (
     <>
       <div className="tabs" role="tablist">
-        {(['incoming', 'mine'] as const).map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>
-            {t === 'incoming' ? 'Review requested' : 'Mine'} <span className="count">{snapshot[t].length}</span>
+        {TABS.map((t) => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} className={`tab ${tab === t.id ? 'on' : ''}`} onClick={() => setTab(t.id)}
+            title={t.id === 'all' ? (repos.length ? `Open PRs in ${repos.join(', ')}` : 'Open PRs in the repositories chosen in Settings') : undefined}>
+            {t.label} <span className="count">{lists[t.id].length}</span>
           </button>
         ))}
       </div>
       <div className="rows" role="list" style={{ paddingTop: 6 }}>
-        {list.length === 0 && <div className="note">{tab === 'incoming' ? 'No PRs waiting for your review.' : 'No open PRs of yours.'}</div>}
+        {list.length === 0 && <div className="note">{empty}</div>}
         {list.map((pr) => {
           const ids = unread.get(pr.id) ?? [];
           return (
             <button key={pr.id} role="listitem" className={`row click ${ids.length ? 'new' : ''}`} onClick={() => openItem(pr.url, ids, onSee)}>
               <i className={ids.length ? 'newdot' : 'nodot'} />
               {pr.authorAvatarUrl ? <img className="avatar" src={pr.authorAvatarUrl} alt="" /> : <span className="avatar" />}
-              <span className="meta mono">{pr.repo.split('/')[1] ?? pr.repo} #{pr.number}</span>
+              <span className="meta mono" title={pr.repo}>{pr.repo.split('/')[1] ?? pr.repo} #{pr.number}</span>
               <span className="title" title={pr.title}>{pr.title}</span>
-              <span className="meta">{pr.authorLogin} · {relativeTime(pr.createdAt, now)}</span>
+              <span className="meta">{pr.authorLogin} · {relativeTime(tab === 'all' ? pr.updatedAt : pr.createdAt, now)}</span>
               <CiDot ci={pr.ci} />
               <DecisionTag pr={pr} />
             </button>

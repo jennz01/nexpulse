@@ -3,14 +3,16 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { StoreAccounts } from './accounts';
 import { createApp } from './app';
-import type { CodemagicActions, CodemagicTokenActions } from './app';
+import type { CodemagicActions, CodemagicTokenActions, GithubActions } from './app';
 import { LarkAttachments } from './attachments';
 import { AuthManager } from './auth';
 import { maskToken, testCodemagicToken, validateToken, writeEnvValue } from './codemagicToken';
 import { loadConfig, publicConfig } from './config';
+import { editConfig } from './configEdit';
 import { run } from './proc';
 import { Scheduler } from './scheduler';
 import { codemagicSource, createCodemagicActions } from './sources/codemagic';
+import { listRepos } from './sources/github';
 import { buildGithubSource, buildSources, buildStoreSources } from './sources/index';
 import { SseHub } from './sse';
 import { Store } from './store';
@@ -61,15 +63,8 @@ const auth = new AuthManager({
   githubAccount: loaded.config.github.account,
   log,
   onLogin: async (provider) => {
-    if (provider === 'github') {
-      const reg = await buildGithubSource(loaded, log);
-      if (reg.disabled) disabled.github = reg.disabled;
-      else delete disabled.github;
-      scheduler.replace(reg);
-      log(`github: ${reg.disabled ? `still disabled (${reg.disabled})` : 'signed in, polling now'}`);
-    } else {
-      void scheduler.refresh('lark');
-    }
+    if (provider === 'github') await rebuildGithub('signed in');
+    else void scheduler.refresh('lark');
   },
 });
 
@@ -103,6 +98,29 @@ const codemagicToken: CodemagicTokenActions = {
     return codemagicToken.status();
   },
 };
+// Repositories for the Pull Requests panel's All tab: saved into the config, then the GitHub source is rebuilt and polled.
+const rebuildGithub = async (why: string): Promise<void> => {
+  const reg = await buildGithubSource(loaded, log);
+  if (reg.disabled) disabled.github = reg.disabled;
+  else delete disabled.github;
+  scheduler.replace(reg);
+  log(`github: ${why}${reg.disabled ? `; still disabled (${reg.disabled})` : ', polling now'}`);
+};
+const github: GithubActions = {
+  listRepos: () => listRepos(run),
+  setRepos: async (repos) => {
+    const fresh = editConfig(ROOT, (raw) => {
+      const gh = (raw.github && typeof raw.github === 'object' ? raw.github : {}) as Record<string, unknown>;
+      raw.github = { ...gh, repos };
+    });
+    loaded.config = fresh.config;
+    loaded.problems = fresh.problems;
+    Object.assign(pub, publicConfig(fresh.config));
+    await rebuildGithub(`repositories updated from Settings (${repos.length})`);
+    return fresh.config.github.repos;
+  },
+};
+
 const noCodemagic = (): never => { throw new Error(disabled.codemagic ?? 'Codemagic not configured'); };
 const codemagicActions: CodemagicActions = {
   trigger: (input) => (codemagicRef.current ?? noCodemagic()).trigger(input),
@@ -110,7 +128,7 @@ const codemagicActions: CodemagicActions = {
 };
 
 const app = createApp({
-  store, scheduler, hub, publicConfig: pub, disabled, codemagic: codemagicActions, accounts, devEmit, auth, codemagicToken,
+  store, scheduler, hub, publicConfig: pub, disabled, codemagic: codemagicActions, accounts, devEmit, auth, codemagicToken, github,
   lark: { attachment: (table, recordId, token, name, range) => attachments.response(table, recordId, token, name, range) },
   allowedHosts: [`127.0.0.1:${port}`, `localhost:${port}`],
 });

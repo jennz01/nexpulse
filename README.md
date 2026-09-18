@@ -1,4 +1,4 @@
-# Personal Dashboard
+# NexPulse
 
 One local page for the daily round: pull requests to review, Codemagic builds, Lark tasks, merchant issues and feedback, and App Store / Play Store release state across three developer accounts. Runs as a single Bun process on this PC; nothing is hosted anywhere.
 
@@ -7,8 +7,8 @@ Design spec: `docs/superpowers/specs/2026-09-17-personal-dashboard-design.md`. T
 **New here?** [SETUP.md](SETUP.md) walks through requirements, a one-shot install script and running at startup. In short:
 
 ```powershell
-git clone https://github.com/jennz01/my-dashboard.git
-cd my-dashboard
+git clone https://github.com/jennz01/NexPulse.git
+cd NexPulse
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
 ```
 
@@ -105,7 +105,7 @@ The sidebar switches between three pages, each with its own URL: Home (`#/`, pul
 
 ## Auto-start at login
 
-`bun run build` once, then `bun run startup:install`. That registers a Windows scheduled task named **PersonalDashboard** for your user: at every sign-in (15 s after logon) it runs `bun server/index.ts` with no window, restarts it if it exits, and never times out. Install also starts it right away, so http://127.0.0.1:6600 is up from then on. No admin rights are needed, and the task runs only while you are logged in, so `gh` and `lark-cli` keep using your logins.
+`bun run build` once, then `bun run startup:install`. That registers a Windows scheduled task named **NexPulse** for your user: at every sign-in (15 s after logon) it runs `bun server/index.ts` with no window, restarts it if it exits, and never times out. Install also starts it right away, so http://127.0.0.1:6600 is up from then on. No admin rights are needed, and the task runs only while you are logged in, so `gh` and `lark-cli` keep using your logins.
 
 | Command | What it does |
 |---|---|
@@ -120,6 +120,8 @@ Server output goes to `data/server.log`; the previous session's log is kept as `
 Settings is the last item in the sidebar.
 
 **Connections** shows the three logins the sources depend on and lets you fix them without a terminal. GitHub and Lark are the `gh` and `lark-cli` sign-ins on this PC: each row says who is signed in (and, for Lark, until when the session renews itself) with an Authorize / Re-authorize button that runs the CLI's own device-code sign-in for you: copy the one-time code, open the verification page, approve, and the panel refreshes on its own. If `gh` is signed in as a different account than `github.account`, a Switch button runs `gh auth switch`. Codemagic takes its API token here: Set token → paste → Test → Save writes it to `config/secrets/.env` and starts polling at once; Remove clears it. Status is re-checked every five minutes, when the window regains focus, and as soon as a poll fails with an authorization error. When a session has expired, a red bar under the header on every page says which panels stopped updating and offers Re-authorize; an amber bar warns when the Lark session ends within two days.
+
+**Pull requests** picks the repositories behind the Pull Requests panel's **All** tab. The card lists every repository the signed-in `gh` account can see (owned, collaborator or organization member), newest push first, with its open PR count; tick up to 50 and Save. The selection is written to `github.repos` in the config and polled immediately, so on a shared team setup each person's dashboard shows their own repositories. Review requested and Mine are unaffected and always cover everything the account can see; a repository that is later renamed or lost only drops out of the All tab.
 
 Alerts: Windows toast (native notification for high-priority events; needs one-time permission), in-page badges only, or off. Appearance: theme light / dark / auto, font size small / medium / large, density comfortable / compact. Stored per browser.
 

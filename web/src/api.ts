@@ -1,4 +1,4 @@
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LoginState, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LoginState, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
 
 const POST_HEADERS = { 'x-requested-with': 'dashboard' };
 
@@ -66,6 +66,10 @@ export const getLogin = async (provider: AuthProvider): Promise<LoginState> => j
 export const startLogin = async (provider: AuthProvider): Promise<LoginState> => json<LoginState>(await fetch(`/api/auth/${provider}/login`, { method: 'POST', headers: POST_HEADERS }));
 export const cancelLogin = async (provider: AuthProvider): Promise<LoginState> => json<LoginState>(await fetch(`/api/auth/${provider}/login`, { method: 'DELETE', headers: POST_HEADERS }));
 export const switchGithubAccount = async (): Promise<AuthStatus> => json<AuthStatus>(await fetch('/api/auth/github/switch', { method: 'POST', headers: POST_HEADERS }));
+
+// ---- Repositories for the Pull Requests panel's All tab (Settings → Pull requests) ----
+export const fetchGithubRepos = async (): Promise<{ repos: RepoInfo[]; selected: string[] }> => json(await fetch('/api/github/repos'));
+export const saveGithubRepos = async (repos: string[]): Promise<{ selected: string[] }> => json(await fetch('/api/github/repos', { method: 'PUT', headers: JSON_POST, body: JSON.stringify({ repos }) }));
 
 // ---- Codemagic API token (Settings → Connections) ----
 export const fetchCodemagicToken = async (): Promise<CodemagicTokenStatus> => json<CodemagicTokenStatus>(await fetch('/api/codemagic/token'));

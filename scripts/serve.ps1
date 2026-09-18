@@ -1,5 +1,5 @@
 <#
-Supervisor for the dashboard server. The PersonalDashboard scheduled task (scripts\startup.ps1 install)
+Supervisor for the dashboard server. The NexPulse scheduled task (scripts\startup.ps1 install)
 runs this hidden at logon; you can also run it by hand from the repo root:
 
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\serve.ps1

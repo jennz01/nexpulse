@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { LarkTableKey } from './config';
 import { SOURCE_IDS } from '../shared/types';
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LoginState, NewEvent, PublicConfig, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
 import { AccountInputError } from './accounts';
 import type { StoreAccounts } from './accounts';
 import type { Scheduler } from './scheduler';
@@ -34,6 +34,14 @@ export interface CodemagicTokenActions {
   remove(): Promise<CodemagicTokenStatus>;
 }
 
+export interface GithubActions {
+  /** Repositories the signed-in gh account can see, for the Settings picker. */
+  listRepos(): Promise<RepoInfo[]>;
+  /** Replaces `github.repos` in the config and polls again; resolves to the saved list. */
+  setRepos(repos: string[]): Promise<string[]>;
+}
+const REPO_NAME = /^[\w.-]+\/[\w.-]+$/;
+
 export interface LarkActions {
   /** Streams a Base attachment, downloaded through lark-cli and cached on disk; `range` is the request's Range header. */
   attachment(table: LarkTableKey, recordId: string, token: string, name: string, range?: string | null): Promise<Response>;
@@ -51,6 +59,7 @@ export interface AppDeps {
   lark?: LarkActions;
   auth?: AuthActions;
   codemagicToken?: CodemagicTokenActions;
+  github?: GithubActions;
   /** Store account management for the Settings page; absent in tests and `bun run check`. */
   accounts?: StoreAccounts;
   /** SSE keep-alive interval in ms; tests shorten it so no long timer outlives them. */
@@ -193,6 +202,21 @@ export function createApp(deps: AppDeps): Hono {
   app.post('/api/auth/github/switch', async (c) => {
     if (!deps.auth) return c.json({ error: 'not available' }, 409);
     try { return c.json(await deps.auth.switchGithub()); } catch (e) { return c.json({ error: (e as Error).message }, 502); }
+  });
+
+  // ---- Repositories for the Pull Requests panel's All tab (config github.repos) ----
+  app.get('/api/github/repos', async (c) => {
+    if (!deps.github) return c.json({ error: 'not available' }, 409);
+    try { return c.json({ repos: await deps.github.listRepos(), selected: deps.publicConfig.githubRepos }); } catch (e) { return c.json({ error: describeError(e) }, 502); }
+  });
+  app.put('/api/github/repos', async (c) => {
+    if (!deps.github) return c.json({ error: 'not available' }, 409);
+    const body = (await c.req.json().catch(() => null)) as { repos?: unknown } | null;
+    const list = Array.isArray(body?.repos) ? body!.repos : null;
+    if (!list || !list.every((r) => typeof r === 'string' && REPO_NAME.test(r))) return c.json({ error: 'repos must be a list of owner/name strings' }, 400);
+    const repos = [...new Set(list as string[])];
+    if (repos.length > 50) return c.json({ error: 'at most 50 repositories' }, 400);
+    try { return c.json({ selected: await deps.github.setRepos(repos) }); } catch (e) { return c.json({ error: describeError(e) }, 400); }
   });
 
   // ---- Codemagic API token, kept in config/secrets/.env ----

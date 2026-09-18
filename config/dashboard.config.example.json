@@ -9,7 +9,11 @@
     "stores": 600
   },
   "github": {
-    "account": "your-github-login"
+    "account": "your-github-login",
+    "repos": [
+      "your-org/repo-a",
+      "your-org/repo-b"
+    ]
   },
   "codemagic": {
     "enabled": true

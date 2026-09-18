@@ -16,7 +16,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-$TaskName = 'PersonalDashboard'
+$TaskName = 'NexPulse'
 $root = Split-Path -Parent $PSScriptRoot
 $serveScript = Join-Path $PSScriptRoot 'serve.ps1'
 $logFile = Join-Path $root 'data\server.log'
@@ -104,7 +104,7 @@ function Install-Task {
   $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
 
   Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal `
-    -Description "Personal dashboard server (bun) on http://127.0.0.1:$port, started hidden at logon. Managed by $root\scripts\startup.ps1" `
+    -Description "NexPulse dashboard server (bun) on http://127.0.0.1:$port, started hidden at logon. Managed by $root\scripts\startup.ps1" `
     -Force | Out-Null
   Write-Host "Registered task '$TaskName' to start at logon of $user."
   Start-Task

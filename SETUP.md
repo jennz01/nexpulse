@@ -1,4 +1,4 @@
-# Setup guide
+# NexPulse setup guide
 
 This guide takes a fresh Windows PC from nothing to a dashboard that starts itself at every sign-in. It is written for someone who has never seen the project. If you only want the short version: install Git, clone the repo, run `scripts\setup.ps1`, then fill in the config it created.
 
@@ -41,8 +41,8 @@ Accounts and credentials, all optional except the first two:
 2. Clone the repo and run the setup script:
 
    ```powershell
-   git clone https://github.com/jennz01/my-dashboard.git
-   cd my-dashboard
+   git clone https://github.com/jennz01/NexPulse.git
+   cd NexPulse
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
    ```
 
@@ -73,7 +73,7 @@ After any config change: `bun run check` to confirm, then `bun run startup:resta
 
 ## Run at startup
 
-`bun run startup:install` (the setup script already did this) registers a Windows scheduled task named **PersonalDashboard** for your user. At every sign-in, 15 seconds after logon, it runs the server hidden, restarts it if it exits, and never times out. It runs only while you are logged in, so `gh` and `lark-cli` keep using your logins. No admin rights are involved.
+`bun run startup:install` (the setup script already did this) registers a Windows scheduled task named **NexPulse** for your user. At every sign-in, 15 seconds after logon, it runs the server hidden, restarts it if it exits, and never times out. It runs only while you are logged in, so `gh` and `lark-cli` keep using your logins. No admin rights are involved.
 
 | Command | What it does |
 |---|---|
@@ -87,7 +87,7 @@ Server output goes to `data\server.log`. If the page shows "reconnecting…" for
 ## Update to a newer version
 
 ```powershell
-cd my-dashboard
+cd NexPulse
 git pull
 bun install
 bun run build
@@ -99,8 +99,8 @@ bun run startup:restart
 ```powershell
 winget install Git.Git Oven-sh.Bun GitHub.cli OpenJS.NodeJS.LTS   # open a new window afterwards
 npm install -g @larksuite/cli
-git clone https://github.com/jennz01/my-dashboard.git
-cd my-dashboard
+git clone https://github.com/jennz01/NexPulse.git
+cd NexPulse
 bun install
 copy config\dashboard.config.example.json config\dashboard.config.json   # then edit it
 gh auth login

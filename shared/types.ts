@@ -41,6 +41,16 @@ export interface GithubSnapshot {
   login: string;
   incoming: PullRequest[];
   mine: PullRequest[];
+  /** Every open PR in the configured repositories (`github.repos`), most recently updated first. Absent in snapshots stored before the setting existed. */
+  all?: PullRequest[];
+}
+/** A repository the signed-in GitHub account can see, for the Settings picker. */
+export interface RepoInfo {
+  name: string; // owner/name
+  private: boolean;
+  archived: boolean;
+  pushedAt: string | null;
+  openPRs: number;
 }
 
 // ---- Codemagic ----
@@ -179,6 +189,8 @@ export interface PublicConfig {
   taskFormUrl: string | null;
   /** Merchant Feedback groups (by R&D status) shown first, in this order; the rest follow by first appearance. */
   feedbackGroupOrder: string[];
+  /** Repositories whose open PRs fill the Pull Requests panel's All tab (owner/name). */
+  githubRepos: string[];
 }
 export interface StateResponse {
   states: SourceStates;

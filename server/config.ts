@@ -58,7 +58,11 @@ export const ConfigSchema = z.object({
       stores: z.number().int().positive().default(600),
     })
     .default({ github: 60, codemagic: 120, lark: 120, stores: 600 }),
-  github: z.object({ account: id }),
+  github: z.object({
+    account: id,
+    /** Repositories (owner/name) whose open PRs fill the panel's All tab; chosen from the Settings page. */
+    repos: z.array(z.string().regex(/^[\w.-]+\/[\w.-]+$/, 'expected owner/name')).max(50).default([]),
+  }),
   codemagic: z.object({ enabled: z.boolean().default(true) }).default({ enabled: true }),
   lark: z.object({
     domain: id,
@@ -164,5 +168,6 @@ export function publicConfig(config: DashboardConfig): PublicConfig {
     showIssueStatuses: config.lark.tables.issues.showStatuses,
     taskFormUrl: config.lark.tables.tasks.createFormUrl ?? null,
     feedbackGroupOrder: config.lark.tables.feedback.groupOrder,
+    githubRepos: config.github.repos,
   };
 }

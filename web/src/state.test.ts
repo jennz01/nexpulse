@@ -7,7 +7,7 @@ const ev = (id: number, kind: string, itemId = `i${id}`): Event => ({ id, source
 const loaded: StateResponse = {
   states: emptyStates(),
   events: [ev(1, 'pr.review_requested')],
-  config: { intervals: { github: 60, codemagic: 120, lark: 120, appstore: 600, playstore: 600 }, larkDomain: 'd', accounts: [], pendingLaunchStatus: 'P', collapsedStatuses: [], showIssueStatuses: ['OPEN', 'CHECKING'], taskFormUrl: null, feedbackGroupOrder: [] },
+  config: { intervals: { github: 60, codemagic: 120, lark: 120, appstore: 600, playstore: 600 }, larkDomain: 'd', accounts: [], pendingLaunchStatus: 'P', collapsedStatuses: [], showIssueStatuses: ['OPEN', 'CHECKING'], taskFormUrl: null, feedbackGroupOrder: [], githubRepos: [] },
 };
 
 describe('reducer', () => {

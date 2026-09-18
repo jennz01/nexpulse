@@ -37,7 +37,7 @@ interface Props {
 export function Sidebar({ page, onNavigate, unread, chips, collapsed, canToggle, onToggle }: Props) {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} aria-label="Navigation">
-      <div className="sb-brand"><IconLogo /><span className="brand label">Dashboard</span></div>
+      <div className="sb-brand"><IconLogo /><span className="brand label">NexPulse</span></div>
       <nav className="nav">
         {NAV_PAGES.map((p) => {
           const n = pageUnread(unread, p);

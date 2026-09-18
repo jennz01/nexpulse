@@ -44,7 +44,7 @@ export function PullRequestsCard({ ctx, chrome }: CardProps) {
     <Panel id="prs" title="Pull Requests" count={gh ? gh.incoming.length + gh.mine.length : undefined}
       unread={showUnread ? unread.prs.length : 0} state={state.states.github} intervalSec={intervals.github} now={now}
       onRefresh={() => void refreshSource('github')} onMarkAllSeen={() => seeSource('github')} openUrl="https://github.com/pulls/review-requested" {...chrome}>
-      <PullRequests snapshot={gh} events={state.events} onSee={seeIds} now={now} />
+      <PullRequests snapshot={gh} events={state.events} onSee={seeIds} now={now} repos={state.config?.githubRepos ?? []} />
     </Panel>
   );
 }
