@@ -6,10 +6,11 @@ Design spec: `docs/superpowers/specs/2026-09-17-personal-dashboard-design.md`. T
 
 **New here?** [SETUP.md](SETUP.md) walks through requirements, a one-shot install script and running at startup. In short:
 
-```powershell
+```sh
 git clone https://github.com/jennz01/nexpulse.git
 cd nexpulse
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1   # from PowerShell
+bash scripts/setup.sh                                                    # from Git Bash
 ```
 
 The stack is Bun + Hono on the server and React + Vite on the web side (no Next.js); the sections below describe each setting in detail.

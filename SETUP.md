@@ -1,6 +1,6 @@
 # NexPulse setup guide
 
-This guide takes a fresh Windows PC from nothing to a dashboard that starts itself at every sign-in. It is written for someone who has never seen the project. If you only want the short version: install Git, clone the repo, run `scripts\setup.ps1`, then fill in the config it created.
+This guide takes a fresh Windows PC from nothing to a dashboard that starts itself at every sign-in. It is written for someone who has never seen the project. If you only want the short version: install Git, clone the repo, run `scripts/setup.ps1` (or `scripts/setup.sh` from Git Bash), then fill in the config it created.
 
 ## What you are installing
 
@@ -37,16 +37,17 @@ Accounts and credentials, all optional except the first two:
 
 ## Quick start (automated)
 
-1. Open **Windows PowerShell** (not as administrator; nothing here needs it).
+1. Open **Windows PowerShell** or **Git Bash** (not as administrator; nothing here needs it).
 2. Clone the repo and run the setup script:
 
-   ```powershell
+   ```sh
    git clone https://github.com/jennz01/nexpulse.git
    cd nexpulse
-   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1   # from PowerShell
+   bash scripts/setup.sh                                                    # from Git Bash
    ```
 
-   If Git is not installed yet, install it first with `winget install Git.Git`, open a new PowerShell window, and repeat.
+   If Git is not installed yet, install it first with `winget install Git.Git`, open a new terminal window, and repeat.
 
 3. Follow the prompts. The script:
    - checks for Git, Bun, GitHub CLI, Node.js and lark-cli and installs whatever is missing (winget for the tools, npm for lark-cli);
@@ -57,7 +58,7 @@ Accounts and credentials, all optional except the first two:
 
 4. Open http://127.0.0.1:6600. The Pull Requests panel already works. The Lark panels need the table ids from the next section, and Builds and Stores need their credentials; until then those rows read DISABLED in `bun run check`, which is expected.
 
-Re-running the script is safe: every step checks before it changes anything. Two switches exist: `-NoStartup` does everything except the logon task, `-NoBuild` skips the UI build for a machine that will use `bun run dev` instead.
+Re-running the script is safe: every step checks before it changes anything. Two switches exist: `-NoStartup` does everything except the logon task, `-NoBuild` skips the UI build for a machine that will use `bun run dev` instead. Both work from either shell; `bash scripts/setup.sh -NoStartup` passes them through unchanged.
 
 Already have Bun? `bun run setup` runs the same script.
 
@@ -102,7 +103,7 @@ npm install -g @larksuite/cli
 git clone https://github.com/jennz01/nexpulse.git
 cd nexpulse
 bun install
-copy config\dashboard.config.example.json config\dashboard.config.json   # then edit it
+cp config/dashboard.config.example.json config/dashboard.config.json   # then edit it
 gh auth login
 lark-cli auth login
 bun run build

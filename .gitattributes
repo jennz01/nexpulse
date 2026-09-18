@@ -1,0 +1,2 @@
+# Shell scripts must stay LF on Windows checkouts (core.autocrlf=true) or Git Bash trips on the carriage returns.
+*.sh text eol=lf

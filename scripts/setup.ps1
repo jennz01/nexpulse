@@ -1,8 +1,9 @@
 <#
 One-shot setup for the personal dashboard on Windows. Run it from anywhere:
 
-  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1
-  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup.ps1 -NoStartup   # everything except the logon task
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1              # from PowerShell
+  bash scripts/setup.sh                                                               # from Git Bash (thin wrapper around this file)
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1 -NoStartup   # everything except the logon task
 
 It is safe to run again at any time: every step checks before it changes anything.
 
