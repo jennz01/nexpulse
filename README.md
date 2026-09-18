@@ -18,8 +18,8 @@ The stack is Bun + Hono on the server and React + Vite on the web side (no Next.
 ## Prerequisites
 
 - Bun 1.3+ (`bun --version`)
-- GitHub CLI logged in as the account whose pull requests you want to track (`gh auth status`); set the same login as `github.account` in the config
-- lark-cli 1.0.49+ logged in (`lark-cli auth status`, or `lark-cli auth login`)
+- GitHub CLI (`gh`). Sign in from the dashboard's Settings → Connections or with `gh auth login`; the login it signs in as is saved to `github.account` in the config the first time (set it yourself only to pin a different account)
+- lark-cli 1.0.49+. Sign in from Settings → Connections or with `lark-cli auth login`
 - A Codemagic API token, one App Store Connect API key per Apple developer account, one Google Play service account per Play developer account (steps below)
 
 ## First-time setup

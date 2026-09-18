@@ -4,26 +4,24 @@ One-shot setup for the personal dashboard on Windows. Run it from anywhere:
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1              # from PowerShell
   bash scripts/setup.sh                                                               # from Git Bash (thin wrapper around this file)
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup.ps1 -NoStartup   # everything except the logon task
-  bash scripts/setup.sh -NoLogin                                                      # install and build only; sign in to GitHub and Lark later
 
 It is safe to run again at any time: every step checks before it changes anything.
 
   1. Tools      Git, Bun, GitHub CLI, Node.js and lark-cli; missing ones are installed with winget / npm
   2. Packages   bun install
   3. Config     config\dashboard.config.json from the example, config\secrets\.env template
-  4. Logins     gh auth login / lark-cli auth login when not signed in; writes your GitHub login into the config (skipped with -NoLogin)
-  5. Build      bun run build (the static UI the server serves)
-  6. Check      bun run check (one call per source; DISABLED rows are fine until you add those credentials)
-  7. Startup    bun run startup:install (Windows scheduled task that starts the server at logon)
+  4. Build      bun run build (the static UI the server serves)
+  5. Check      bun run check (one call per source; FAILED github/lark rows and DISABLED rows are expected until you sign in / add credentials)
+  6. Startup    bun run startup:install (Windows scheduled task that starts the server at logon)
+
+Signing in to GitHub and Lark is not part of setup: open the dashboard afterwards and use Settings, Connections, Authorize.
 #>
 [CmdletBinding()]
 param(
   # Skip registering the logon task (you can run `bun run startup:install` later).
   [switch] $NoStartup,
   # Skip the UI build (for a dev machine that will use `bun run dev`).
-  [switch] $NoBuild,
-  # Skip the GitHub and Lark sign-in prompts: install and build only. Sign in later with `gh auth login` and `lark-cli auth login`.
-  [switch] $NoLogin
+  [switch] $NoBuild
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -39,13 +37,6 @@ function Refresh-Path {
 function Run([string] $exe, [string[]] $arguments) {
   & $exe @arguments
   if ($LASTEXITCODE -ne 0) { throw "$exe $($arguments -join ' ') exited with code $LASTEXITCODE" }
-}
-function ExitCodeOf([string] $commandLine) {
-  # Exit code of a native command with its output discarded. The redirection happens in cmd.exe on purpose:
-  # in Windows PowerShell, `2>$null` on a native command turns each stderr line into an ErrorRecord, which
-  # $ErrorActionPreference = 'Stop' then treats as fatal (npm's lark-cli.ps1 shim trips this when not signed in).
-  & cmd.exe /d /c "$commandLine >nul 2>&1"
-  return $LASTEXITCODE
 }
 function Ensure-Tool([string] $cmd, [string] $wingetId, [string] $label, [string] $manual) {
   if (Have $cmd) { Ok "$label found: $((Get-Command $cmd).Source)"; return }
@@ -100,32 +91,6 @@ if (-not (Test-Path $envPath)) {
   Ok 'config\secrets\.env exists'
 }
 
-if ($NoLogin) {
-  Step 'Logins (skipped: -NoLogin)'
-  Note 'Sign in later with `gh auth login` and `lark-cli auth login`, then put your GitHub login in github.account of the config (or use Settings, Connections in the dashboard). Until then the Pull Requests and Lark panels stay off.'
-} else {
-  Step 'Logins'
-  if ((ExitCodeOf 'gh auth status') -ne 0) {
-    Note 'GitHub CLI is not signed in; a browser window will open.'
-    Run 'gh' @('auth', 'login', '--hostname', 'github.com', '--git-protocol', 'https', '--web')
-  }
-  $login = (& gh api user -q .login).Trim()
-  Ok "GitHub CLI signed in as $login"
-  $config = Get-Content -Raw $configPath | ConvertFrom-Json
-  if ($config.github.account -eq 'your-github-login' -or [string]::IsNullOrWhiteSpace($config.github.account)) {
-    $config.github.account = $login
-    $config | ConvertTo-Json -Depth 20 | Set-Content -Path $configPath -Encoding utf8
-    Ok "Wrote github.account = $login into the config"
-  } elseif ($config.github.account -ne $login) {
-    Note "The config tracks GitHub account '$($config.github.account)' but gh is signed in as '$login'. Match them (edit the config or run gh auth switch) or the Pull Requests panel stays off."
-  }
-  if ((ExitCodeOf 'lark-cli auth status') -ne 0) {
-    Note 'lark-cli is not signed in; a browser window will open.'
-    Run 'lark-cli' @('auth', 'login')
-  }
-  Ok 'lark-cli signed in'
-}
-
 if (-not $NoBuild) {
   Step 'Build'
   Run 'bun' @('run', 'build')
@@ -133,11 +98,12 @@ if (-not $NoBuild) {
 
 Step 'Check'
 & bun run check
-if ($LASTEXITCODE -ne 0) { Note 'Some sources reported errors above. Fix the config for those rows, then run `bun run check` again; the rest of the setup still applies.' }
+if ($LASTEXITCODE -ne 0) { Note 'FAILED rows for github and lark are expected until you sign in from the dashboard (Settings, Connections), DISABLED rows until you add those credentials. For anything else fix the config for that row and run `bun run check` again. The rest of the setup still applies.' }
 
 if ($NoStartup) {
   Step 'Done (startup task skipped)'
   Write-Host '   Start it by hand with `bun run start`, or register the logon task later with `bun run startup:install`.'
+  Write-Host '   Then open http://127.0.0.1:6600, Settings, Connections, and click Authorize for GitHub and for Lark.'
 } elseif ($NoBuild) {
   Step 'Done (startup task skipped: nothing is built to serve)'
   Write-Host '   Run `bun run dev` for development, or `bun run build` then `bun run startup:install`.'
@@ -146,5 +112,6 @@ if ($NoStartup) {
   Run 'powershell' @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'startup.ps1'), 'install')
   Step 'Done'
   Write-Host '   The dashboard is running at http://127.0.0.1:6600 and will start again at every sign-in.'
+  Write-Host '   Next: open it, go to Settings, Connections and click Authorize for GitHub and for Lark (each is a short browser step).'
   Write-Host '   After editing config\dashboard.config.json: bun run startup:restart'
 }

@@ -1,4 +1,5 @@
 import type { CiState, GithubSnapshot, NewEvent, PullRequest, RepoInfo, ReviewDecision } from '../../shared/types';
+import { isUnsetGithubAccount } from '../config';
 import { SourceError } from './types';
 import type { Runner, Source, SourceContext } from './types';
 
@@ -157,13 +158,13 @@ export async function fetchGithub(ctx: SourceContext<GithubConfig>): Promise<Git
     throw new SourceError(`gh returned non-JSON output: ${firstLine(res.stdout)}`);
   }
   const snap = parseGithub(json, repos);
-  if (snap.login !== ctx.config.account) {
+  if (!isUnsetGithubAccount(ctx.config.account) && snap.login !== ctx.config.account) {
     throw new SourceError(`gh is logged in as ${snap.login}, expected ${ctx.config.account}`, `run \`gh auth switch --user ${ctx.config.account}\``);
   }
   return snap;
 }
 
-/** Startup check: disables the source only when the active gh account is wrong; a transient/offline `gh` failure is a warning, not a disable (spec §5.1). */
+/** Startup check: disables the source only when the active gh account is wrong (an unset `github.account` accepts any login); a transient/offline `gh` failure is a warning, not a disable (spec §5.1). */
 export async function checkGithubAccount(run: Runner, expected: string): Promise<{ disabled: string | null; warning: string | null }> {
   const res = await run('gh', ['api', 'user', '-q', '.login'], { timeoutMs: 20_000 });
   if (res.code !== 0) {
@@ -171,7 +172,7 @@ export async function checkGithubAccount(run: Runner, expected: string): Promise
     return { disabled: null, warning: `gh not ready: ${firstLine(res.stderr) || 'unknown error'}${hint ? ` (${hint})` : ''}` };
   }
   const login = res.stdout.trim();
-  if (login !== expected) return { disabled: `gh active account is ${login}, expected ${expected} (run \`gh auth switch --user ${expected}\`)`, warning: null };
+  if (!isUnsetGithubAccount(expected) && login !== expected) return { disabled: `gh active account is ${login}, expected ${expected} (run \`gh auth switch --user ${expected}\`)`, warning: null };
   return { disabled: null, warning: null };
 }
 

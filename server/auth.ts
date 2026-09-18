@@ -1,11 +1,14 @@
 import type { Subprocess } from 'bun';
 import type { AuthProvider, AuthStatus, LoginState, ProviderStatus } from '../shared/types';
+import { isUnsetGithubAccount } from './config';
 import { killTree, resolveCommand, run } from './proc';
 import type { Runner } from './sources/types';
 
 export interface AuthOptions {
-  /** The gh login the GitHub source expects (config `github.account`). */
+  /** The gh login the GitHub source expects (config `github.account`); unset on a fresh install until the first sign-in fills it. */
   githubAccount: string;
+  /** Called when the config has no GitHub account yet and gh turns out to be signed in: the host saves `login` as `github.account`. */
+  onAdoptGithubAccount?: (login: string) => void | Promise<void>;
   log?: (line: string) => void;
   /** Called after a sign-in completes, so the host can re-enable and refresh the matching source. */
   onLogin?: (provider: AuthProvider) => void | Promise<void>;
@@ -25,7 +28,8 @@ const idle = (): Flow => ({ state: { phase: 'idle' }, proc: null, timer: null })
  * Owns the two CLI sessions the sources depend on. `status()` asks gh and lark-cli who is signed in (cached for a
  * minute). A sign-in is a device-code flow the server drives: gh prints its one-time code and waits until the user
  * finishes in the browser; lark-cli hands out a code with --no-wait and a second call polls until it is approved.
- * One flow per provider at a time; the browser reads its progress from `login()`.
+ * One flow per provider at a time; the browser reads its progress from `login()`. While the config has no GitHub account,
+ * the first login gh reports is adopted and handed to `onAdoptGithubAccount` to save.
  */
 export class AuthManager {
   private cache: { at: number; value: AuthStatus } | null = null;
@@ -90,6 +94,12 @@ export class AuthManager {
       return { state: AUTH_ERROR.test(text) ? 'expired' : 'unknown', account: null, expected, detail: text };
     }
     const login = res.stdout.trim();
+    if (isUnsetGithubAccount(expected)) {
+      // First sign-in on this PC: the config has no account yet, so the one gh reports becomes it.
+      this.opts.githubAccount = login;
+      try { await this.opts.onAdoptGithubAccount?.(login); } catch (e) { this.opts.log?.(`github: signed in as ${login} but could not save it to the config: ${(e as Error).message}`); }
+      return { state: 'ok', account: login, expected: login, detail: null };
+    }
     if (login !== expected) return { state: 'wrong-account', account: login, expected, detail: `gh is signed in as ${login}; the dashboard tracks ${expected}` };
     return { state: 'ok', account: login, expected, detail: null };
   }

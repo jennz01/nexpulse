@@ -29,8 +29,8 @@ Accounts and credentials, all optional except the first two:
 
 | Account | Needed for | Where to get it |
 |---|---|---|
-| A GitHub account | Pull Requests panel | `gh auth login` during setup |
-| A Lark account with access to the Base | Tasks, Issues, Merchant Feedback | `lark-cli auth login` during setup |
+| A GitHub account | Pull Requests panel | Settings → Connections → Authorize, after setup |
+| A Lark account with access to the Base | Tasks, Issues, Merchant Feedback | Settings → Connections → Authorize, after setup |
 | Codemagic API token | Builds panel | Codemagic → Teams → Personal Account → Integrations → Codemagic API |
 | App Store Connect API key (`.p8`) | Stores panel, iOS column | App Store Connect → Users and Access → Integrations → Team Keys |
 | Google Play service account (JSON) | Stores panel, Android column | Google Cloud Console → IAM → Service Accounts, then invite it in Play Console |
@@ -53,12 +53,11 @@ Accounts and credentials, all optional except the first two:
    - checks for Git, Bun, GitHub CLI, Node.js and lark-cli and installs whatever is missing (winget for the tools, npm for lark-cli);
    - runs `bun install`;
    - creates `config\dashboard.config.json` from the example if you have none, and a `config\secrets\.env` template;
-   - signs you in to GitHub and Lark when needed (each opens a browser window; `-NoLogin` skips this) and writes your GitHub login into the config;
    - builds the UI, runs `bun run check` to call every source once, and registers the start-at-logon task, which also starts the server right away.
 
-4. Open http://127.0.0.1:6600. The Pull Requests panel already works. The Lark panels need the table ids from the next section, and Builds and Stores need their credentials; until then those rows read DISABLED in `bun run check`, which is expected.
+4. Open http://127.0.0.1:6600, go to **Settings → Connections** and click **Authorize** for GitHub and for Lark. Each runs the CLI's own device-code sign-in inside the page: copy the code, approve it in the browser. The dashboard saves the GitHub login it signed in as into the config, so nothing needs editing for that. The Pull Requests panel works as soon as GitHub is authorized. The Lark panels also need the table ids from the next section, and Builds and Stores need their credentials; until then those rows read DISABLED in `bun run check`, which is expected.
 
-Re-running the script is safe: every step checks before it changes anything. Three switches exist: `-NoStartup` does everything except the logon task, `-NoBuild` skips the UI build for a machine that will use `bun run dev` instead, and `-NoLogin` skips the GitHub and Lark sign-in prompts so you can install and build without authorizing anything (sign in later with `gh auth login` and `lark-cli auth login`, or from Settings → Connections). All work from either shell; `bash scripts/setup.sh -NoLogin` passes them through unchanged.
+Re-running the script is safe: every step checks before it changes anything. Two switches exist: `-NoStartup` does everything except the logon task, `-NoBuild` skips the UI build for a machine that will use `bun run dev` instead. Both work from either shell; `bash scripts/setup.sh -NoStartup` passes them through unchanged.
 
 Already have Bun? `bun run setup` runs the same script.
 
@@ -104,8 +103,7 @@ git clone https://github.com/jennz01/nexpulse.git
 cd nexpulse
 bun install
 cp config/dashboard.config.example.json config/dashboard.config.json   # then edit it
-gh auth login
-lark-cli auth login
+# GitHub and Lark sign-in: afterwards, from the dashboard's Settings → Connections
 bun run build
 bun run check
 bun run startup:install

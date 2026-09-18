@@ -7,7 +7,7 @@ import type { CodemagicActions, CodemagicTokenActions, GithubActions } from './a
 import { LarkAttachments } from './attachments';
 import { AuthManager } from './auth';
 import { maskToken, testCodemagicToken, validateToken, writeEnvValue } from './codemagicToken';
-import { loadConfig, publicConfig } from './config';
+import { isUnsetGithubAccount, loadConfig, publicConfig } from './config';
 import { editConfig } from './configEdit';
 import { run } from './proc';
 import { Scheduler } from './scheduler';
@@ -63,8 +63,21 @@ const auth = new AuthManager({
   githubAccount: loaded.config.github.account,
   log,
   onLogin: async (provider) => {
-    if (provider === 'github') await rebuildGithub('signed in');
-    else void scheduler.refresh('lark');
+    if (provider === 'lark') { void scheduler.refresh('lark'); return; }
+    const before = loaded.config.github.account;
+    await auth.status(true); // a first sign-in adopts the account into the config (onAdoptGithubAccount below), which rebuilds the source itself
+    if (loaded.config.github.account === before) await rebuildGithub('signed in');
+  },
+  // Fresh install: the example config carries no real account, so the login gh signed in as is saved and the source rebuilt around it.
+  onAdoptGithubAccount: async (login) => {
+    const fresh = editConfig(ROOT, (raw) => {
+      const gh = (raw.github && typeof raw.github === 'object' ? raw.github : {}) as Record<string, unknown>;
+      raw.github = { ...gh, account: login };
+    });
+    loaded.config = fresh.config;
+    loaded.problems = fresh.problems;
+    Object.assign(pub, publicConfig(fresh.config));
+    await rebuildGithub(`signed in as ${login}; saved as github.account in the config`);
   },
 });
 
@@ -142,6 +155,8 @@ if (existsSync(resolve(ROOT, 'web', 'dist', 'index.html'))) {
 }
 
 scheduler.start();
+// A fresh config has no GitHub account yet: if gh is already signed in on this PC, adopt that login now rather than at the first Settings visit.
+if (isUnsetGithubAccount(loaded.config.github.account)) void auth.status(true);
 const server = Bun.serve({
   hostname: '127.0.0.1',
   port,

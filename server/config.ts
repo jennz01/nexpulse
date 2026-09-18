@@ -73,6 +73,8 @@ export const ConfigSchema = z.object({
 });
 
 export type DashboardConfig = z.infer<typeof ConfigSchema>;
+/** `github.account` still blank or as shipped in the example config. The dashboard then accepts whichever account gh is signed in as and writes it back (AuthManager, index.ts). */
+export const isUnsetGithubAccount = (account: string): boolean => account.trim() === '' || account === 'your-github-login';
 export type LarkConfig = DashboardConfig['lark'];
 export type LarkTableKey = keyof LarkConfig['tables'];
 export type StoreAccountConfig = z.infer<typeof StoreAccount>;
