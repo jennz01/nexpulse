@@ -18,6 +18,7 @@ The stack is Bun + Hono on the server and React + Vite on the web side (no Next.
 ## Prerequisites
 
 - Bun 1.3+ (`bun --version`)
+- Node.js 16 or newer with npm (`node --version`), only to install and run lark-cli; the build and dev server run on Bun
 - GitHub CLI (`gh`). Sign in from the dashboard's Settings → Connections or with `gh auth login`; the login it signs in as is saved to `github.account` in the config the first time (set it yourself only to pin a different account)
 - lark-cli 1.0.49+. Sign in from Settings → Connections or with `lark-cli auth login`
 - A Codemagic API token, one App Store Connect API key per Apple developer account, one Google Play service account per Play developer account (steps below)
@@ -106,12 +107,13 @@ The sidebar switches between three pages, each with its own URL: Home (`#/`, pul
 
 ## Auto-start at login
 
-`bun run build` once, then `bun run startup:install`. That registers a Windows scheduled task named **NexPulse** for your user: at every sign-in (15 s after logon) it runs `bun server/index.ts` with no window, restarts it if it exits, and never times out. Install also starts it right away, so http://127.0.0.1:6600 is up from then on. No admin rights are needed, and the task runs only while you are logged in, so `gh` and `lark-cli` keep using your logins.
+`bun run build` once, then `bun run startup:install`. That registers a Windows scheduled task named **NexPulse** for your user: at every sign-in (15 s after logon) it pulls the latest code (`git pull --ff-only`, rebuilding if anything changed, skipped over local changes; `startup:install -NoUpdate` turns this off) and then runs `bun server/index.ts` with no window, restarts it if it exits, and never times out. Install also starts it right away, so http://127.0.0.1:6600 is up from then on. No admin rights are needed, and the task runs only while you are logged in, so `gh` and `lark-cli` keep using your logins.
 
 | Command | What it does |
 |---|---|
 | `bun run startup:status` | Task state, last result, whether the server is listening |
-| `bun run startup:restart` | Pick up a new `bun run build` or a hand-edited config |
+| `bun run startup:restart` | Pull the latest code (fast-forward only), rebuild if anything changed, then start again; also picks up a hand-edited config. `-NoUpdate` restarts without pulling |
+| `bun run update` | The same pull and rebuild without touching the task, for a PC that runs the server by hand |
 | `bun run startup:stop` | Free port 6600 before `bun run dev`; the task comes back at next logon or with `startup:restart` |
 | `bun run startup:uninstall` | Remove the task |
 

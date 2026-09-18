@@ -86,13 +86,15 @@ Server output goes to `data\server.log`. If the page shows "reconnecting…" for
 
 ## Update to a newer version
 
+The dashboard keeps itself current. At every sign-in, and on `bun run startup:restart`, it runs `git pull --ff-only` and, when new commits arrived, `bun install` and `bun run build` before starting the server. If the network is down or the pull fails it says so in `data\server.log` and starts with the code it already has. Local changes in the checkout switch the pull off until they are committed or stashed, so a development machine is never pulled over.
+
+To update right now:
+
 ```powershell
-cd nexpulse
-git pull
-bun install
-bun run build
 bun run startup:restart
 ```
+
+On a PC without the logon task, `bun run update` does the pull and rebuild alone. To opt out of updating at logon, register the task with `bun run startup:install -NoUpdate`.
 
 ## Manual steps (if the script cannot run)
 
