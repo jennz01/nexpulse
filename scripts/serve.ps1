@@ -24,13 +24,22 @@ $dataDir = Join-Path $root 'data'
 New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
 $log = Join-Path $dataDir 'server.log'
 $prev = Join-Path $dataDir 'server.prev.log'
-if (Test-Path $log) { Move-Item -Force -Path $log -Destination $prev }
 
 function Write-Log([string] $line) {
   $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
   Add-Content -Path $log -Encoding UTF8 -Value "[$stamp] supervisor: $line"
 }
 
+# One supervisor at a time. A second copy would rotate the live log out from under the first and then loop forever
+# on a port it can never bind, so stand down before touching anything if one is already serving.
+$running = @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" |
+  Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -and $_.CommandLine -like "*$PSCommandPath*" })
+if ($running) {
+  Write-Log "pid $PID stood down: pid $($running[0].ProcessId) is already serving"
+  exit 0
+}
+
+if (Test-Path $log) { Move-Item -Force -Path $log -Destination $prev }
 Write-Log "started (pid $PID) in $root"
 if ($NoUpdate) {
   Write-Log 'auto-update is off (-NoUpdate)'

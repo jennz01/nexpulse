@@ -21,6 +21,7 @@ $ErrorActionPreference = 'Stop'
 $TaskName = 'NexPulse'
 $root = Split-Path -Parent $PSScriptRoot
 $serveScript = Join-Path $PSScriptRoot 'serve.ps1'
+$launcherScript = Join-Path $PSScriptRoot 'serve-hidden.vbs'
 $updateScript = Join-Path $PSScriptRoot 'update.ps1'
 $logFile = Join-Path $root 'data\server.log'
 
@@ -59,13 +60,16 @@ function Get-SupervisorProcesses {
 
 function Stop-Task {
   $task = Get-Task
-  if (-not $task -or $task.State -ne 'Running') { return }
-  # Task Scheduler ends the supervisor but not its bun child, so collect the tree first and kill both.
+  $supervisors = @(Get-SupervisorProcesses)
+  if (-not $supervisors -and (-not $task -or $task.State -ne 'Running')) { return }
+  # Task Scheduler ends only its own process, the launcher, so collect the tree first and take it down by hand.
+  # Supervisors go before their bun children, or the restart loop would bring the server straight back.
   $children = @()
-  foreach ($supervisor in @(Get-SupervisorProcesses)) {
+  foreach ($supervisor in $supervisors) {
     $children += @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($supervisor.ProcessId) AND Name = 'bun.exe'")
   }
-  Stop-ScheduledTask -TaskName $TaskName
+  if ($task -and $task.State -eq 'Running') { Stop-ScheduledTask -TaskName $TaskName }
+  foreach ($supervisor in $supervisors) { Stop-Process -Id $supervisor.ProcessId -Force -ErrorAction SilentlyContinue }
   foreach ($child in $children) { Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue }
   if (-not (Wait-Stopped)) { Write-Warning "port $port is still in use after stopping the task" }
   Write-Host "Stopped '$TaskName'."
@@ -89,15 +93,18 @@ function Update-Checkout {
 function Install-Task {
   $bun = (Get-Command bun.exe -ErrorAction SilentlyContinue).Source
   if (-not $bun) { throw 'bun.exe was not found on PATH. Install Bun (https://bun.sh) and open a new terminal.' }
+  if (-not (Test-Path $launcherScript)) { throw "scripts\serve-hidden.vbs is missing; the task needs it to start the server without a console window." }
   if (-not (Test-Path (Join-Path $root 'web\dist\index.html'))) {
     Write-Warning 'web\dist is not built; the server will serve a placeholder page until you run `bun run build` and `bun run startup:restart`.'
   }
 
   Stop-Task
-  $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-  $arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$serveScript`" -Bun `"$bun`""
+  # wscript.exe, not powershell.exe: a console program's console is handed to the default terminal application,
+  # and Windows Terminal then saves the hidden server into its window layout and relaunches it. See serve-hidden.vbs.
+  $wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
+  $arguments = "`"$launcherScript`" `"$serveScript`" `"$bun`""
   if ($NoUpdate) { $arguments += ' -NoUpdate' }
-  $action = New-ScheduledTaskAction -Execute $powershell -Argument $arguments -WorkingDirectory $root
+  $action = New-ScheduledTaskAction -Execute $wscript -Argument $arguments -WorkingDirectory $root
 
   $user = "$env:USERDOMAIN\$env:USERNAME"
   $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
