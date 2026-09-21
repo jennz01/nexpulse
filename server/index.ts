@@ -4,11 +4,12 @@ import { resolve } from 'node:path';
 import { StoreAccounts } from './accounts';
 import { createApp } from './app';
 import type { CodemagicActions, CodemagicTokenActions, GithubActions } from './app';
-import { LarkAttachments } from './attachments';
+import { LarkAttachments, LarkCommentImages } from './attachments';
 import { AuthManager } from './auth';
 import { maskToken, testCodemagicToken, validateToken, writeEnvValue } from './codemagicToken';
 import { isUnsetGithubAccount, loadConfig, publicConfig } from './config';
 import { editConfig } from './configEdit';
+import { LarkComments } from './larkComments';
 import { run } from './proc';
 import { Scheduler } from './scheduler';
 import { codemagicSource, createCodemagicActions } from './sources/codemagic';
@@ -37,13 +38,21 @@ const disabled: Partial<Record<SourceId, string>> = { ...loaded.problems };
 for (const s of sources) if (s.disabled) disabled[s.source.id] = s.disabled;
 
 // Every update carries the current public config, so the page applies data and the settings it was fetched under together.
-const scheduler = new Scheduler(sources, store, (msg) => void hub.broadcast({ ...msg, config: pub }), { log });
+const scheduler = new Scheduler(sources, store, (msg) => {
+  // A Lark poll is also when comment threads created since the last one are picked up: the cursor makes that a single request.
+  if (msg.source === 'lark') void comments.refresh().catch((e: unknown) => log(`lark comments: refresh failed (${(e as Error).message})`));
+  void hub.broadcast({ ...msg, config: pub });
+}, { log });
 const devEmit = process.env.DASHBOARD_DEV === '1';
 if (devEmit) log('DASHBOARD_DEV=1: POST /api/dev/emit is enabled');
 const port = loaded.config.server.port;
 const pub = publicConfig(loaded.config);
 // Reassigned when the Base changes in Settings, so attachment downloads use the new token without a restart.
 let attachments = new LarkAttachments(loaded.config.lark, resolve(ROOT, 'data', 'attachments'));
+// Comment images share the attachment cache; they are keyed by their own token, which no Base token takes part in.
+const commentImages = new LarkCommentImages(resolve(ROOT, 'data', 'attachments'));
+// The record -> comment thread index. Rebuilt for a new Base, since the index is stored per Base token.
+let comments = new LarkComments(loaded.config.lark, store, run, log);
 
 // Settings page edits: rewrite the config, then swap the two store sources in place and poll them at once.
 const accounts = new StoreAccounts({
@@ -147,6 +156,8 @@ const app = createApp({
   store, scheduler, hub, publicConfig: pub, disabled, codemagic: codemagicActions, accounts, devEmit, auth, codemagicToken, github,
   lark: {
     attachment: (table, recordId, token, name, range) => attachments.response(table, recordId, token, name, range),
+    comments: (table, recordId) => comments.forRecord(table, recordId),
+    commentImage: (token) => commentImages.response(token),
     listTables: () => listTables(run, loaded.config.lark),
     listViews: (tableId) => listViews(run, loaded.config.lark, tableId),
     // Base link and table/view pairs picked in Settings: written to the config, then the Lark source is rebuilt around them and polled at once.
@@ -169,6 +180,8 @@ const app = createApp({
       loaded.problems = fresh.problems;
       Object.assign(pub, publicConfig(fresh.config));
       attachments = new LarkAttachments(fresh.config.lark, resolve(ROOT, 'data', 'attachments'));
+      comments = new LarkComments(fresh.config.lark, store, run, log);
+      comments.start();
       const reg = buildLarkSource(loaded, log);
       if (reg.disabled) disabled.lark = reg.disabled;
       else delete disabled.lark;
@@ -190,6 +203,8 @@ if (existsSync(resolve(ROOT, 'web', 'dist', 'index.html'))) {
 }
 
 scheduler.start();
+// The first run sweeps every comment in the Base, which takes a while; it runs in the background and the dialog says so.
+comments.start();
 // A fresh config has no GitHub account yet: if gh is already signed in on this PC, adopt that login now rather than at the first Settings visit.
 if (isUnsetGithubAccount(loaded.config.github.account)) void auth.status(true);
 const server = Bun.serve({

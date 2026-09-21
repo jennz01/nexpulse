@@ -1,4 +1,4 @@
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkTableInfo, LarkViewInfo, LoginState, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
 
 const POST_HEADERS = { 'x-requested-with': 'dashboard' };
 
@@ -38,6 +38,13 @@ export const artifactUrl = (buildId: string, index: number): string => `/api/cod
 /** A Base attachment, fetched and cached by the server; the trailing name only picks the content type and the title browsers show. */
 export const attachmentUrl = (table: 'tasks' | 'issues' | 'feedback', recordId: string, a: LarkAttachment): string =>
   `/api/lark/attachments/${table}/${encodeURIComponent(recordId)}/${encodeURIComponent(a.token)}/${encodeURIComponent(a.name)}`;
+
+/** One record's comment threads. Read when the dialog opens rather than polled, so they are current at that moment. */
+export const fetchRecordComments = async (table: 'tasks' | 'issues' | 'feedback', recordId: string): Promise<LarkCommentsResponse> =>
+  json<LarkCommentsResponse>(await fetch(`/api/lark/comments/${table}/${encodeURIComponent(recordId)}`));
+
+/** An image pasted into a comment; the server downloads and caches it by token. */
+export const commentImageUrl = (token: string): string => `/api/lark/comment-images/${encodeURIComponent(token)}`;
 
 // ---- Store accounts (Settings page) ----
 const JSON_POST = { 'content-type': 'application/json', ...POST_HEADERS };

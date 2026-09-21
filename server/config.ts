@@ -5,11 +5,17 @@ import type { LarkTableSelection, PublicConfig, SourceId } from '../shared/types
 
 const id = z.string().min(1);
 
-const TaskFields = z.object({ title: id, status: id, pic: id, type: id, priority: id, progress: id });
+const TaskFields = z.object({
+  title: id, status: id, pic: id, type: id, priority: id, progress: id,
+  /** Optional columns shown in the detail dialog; `attachments` names the attachment column. */
+  rid: id.optional(), description: id.optional(), category: id.optional(), devStart: id.optional(), devEnd: id.optional(),
+  onHold: id.optional(), deployment: id.optional(), erpVersion: id.optional(), server: id.optional(), attachments: id.optional(),
+});
 const IssueFields = z.object({
   ticketId: id, reportedDate: id, hoursSince: id, priority: id, store: id, description: id, status: id,
-  /** Optional columns shown in the row and detail dialog; `attachments` names the attachment column. */
+  /** Optional columns shown in the row and detail dialog; `attachments` and `resolvedAttachments` name attachment columns. */
   reportedBy: id.optional(), taggedPic: id.optional(), modulePic: id.optional(), attachments: id.optional(),
+  resolvedRemark: id.optional(), resolvedAttachments: id.optional(),
 });
 const FeedbackFields = z.object({
   reportedDate: id, category: id, store: id, text: id,

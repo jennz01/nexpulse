@@ -54,6 +54,9 @@ export function firstLine(text: string): string {
 /** Collapses line breaks and runs of spaces so a multi-line cell reads as one paragraph inside a line clamp. */
 export const flatText = (text: string): string => text.replace(/\s+/g, ' ').trim();
 
+/** Drops a midnight time: a date-only Lark column still arrives as a datetime, e.g. "2026/09/21 00:00". */
+export const dropMidnight = (value: string | undefined): string | undefined => value?.replace(/ 00:00$/, '');
+
 /** "2026/09/16 09:22" -> "16/09 09:22"; date-only values go through shortDate. */
 export function shortDateTime(value: string): string {
   const m = /^(\d{4})\/(\d{2})\/(\d{2})(?: (\d{2}:\d{2}))?/.exec(value);

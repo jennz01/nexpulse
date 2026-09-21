@@ -10,6 +10,7 @@ export interface SnapshotRow<S = unknown> {
 }
 
 interface SnapshotDbRow { data: string | null; fetched_at: number | null; error: string | null; error_at: number | null }
+interface CommentDbRow { comment_id: string; table_id: string; record_id: string }
 interface EventDbRow { id: number; source: string; kind: string; priority: string; item_id: string; title: string; url: string | null; created_at: number; seen: number }
 
 const SCHEMA = `
@@ -32,6 +33,17 @@ CREATE TABLE IF NOT EXISTS events (
   seen       INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS events_unseen ON events(seen, created_at);
+CREATE TABLE IF NOT EXISTS lark_comments (
+  comment_id TEXT PRIMARY KEY,
+  base_token TEXT NOT NULL,
+  table_id   TEXT NOT NULL,
+  record_id  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS lark_comments_record ON lark_comments(base_token, table_id, record_id);
+CREATE TABLE IF NOT EXISTS lark_users (
+  open_id TEXT PRIMARY KEY,
+  name    TEXT NOT NULL
+);
 `;
 
 function rowToEvent(r: EventDbRow): Event {
@@ -136,6 +148,54 @@ export class Store {
       };
     }
     return states as SourceStates;
+  }
+
+  // ---- Lark record comments. Which thread hangs off which record; the thread bodies are always fetched live. ----
+
+  /** The whole index for one Base, oldest thread first (comment ids are snowflakes, so id order is creation order). */
+  larkCommentIndex(baseToken: string): { commentId: string; tableId: string; recordId: string }[] {
+    return this.db
+      .query<CommentDbRow, [string]>('SELECT comment_id, table_id, record_id FROM lark_comments WHERE base_token = ? ORDER BY CAST(comment_id AS INTEGER) ASC')
+      .all(baseToken)
+      .map((r) => ({ commentId: r.comment_id, tableId: r.table_id, recordId: r.record_id }));
+  }
+
+  saveLarkComments(baseToken: string, rows: { commentId: string; tableId: string; recordId: string }[]): void {
+    if (rows.length === 0) return;
+    const insert = this.db.query<never, [string, string, string, string]>(
+      `INSERT INTO lark_comments (comment_id, base_token, table_id, record_id) VALUES (?, ?, ?, ?)
+       ON CONFLICT(comment_id) DO UPDATE SET base_token = excluded.base_token, table_id = excluded.table_id, record_id = excluded.record_id`,
+    );
+    this.db.transaction(() => {
+      for (const r of rows) insert.run(r.commentId, baseToken, r.tableId, r.recordId);
+    })();
+  }
+
+  /** The highest comment id indexed for this Base; it doubles as the cursor that asks Lark only for newer threads. */
+  newestLarkComment(baseToken: string): string | null {
+    const row = this.db
+      .query<{ comment_id: string }, [string]>('SELECT comment_id FROM lark_comments WHERE base_token = ? ORDER BY CAST(comment_id AS INTEGER) DESC LIMIT 1')
+      .get(baseToken);
+    return row?.comment_id ?? null;
+  }
+
+  countLarkComments(baseToken: string): number {
+    return this.db.query<{ n: number }, [string]>('SELECT COUNT(*) AS n FROM lark_comments WHERE base_token = ?').get(baseToken)?.n ?? 0;
+  }
+
+  /** open_id -> display name, for comment authors and @mentions. */
+  larkUserNames(): Map<string, string> {
+    const rows = this.db.query<{ open_id: string; name: string }, []>('SELECT open_id, name FROM lark_users').all();
+    return new Map(rows.map((r) => [r.open_id, r.name]));
+  }
+
+  saveLarkUserNames(names: Iterable<[string, string]>): void {
+    const insert = this.db.query<never, [string, string]>(
+      'INSERT INTO lark_users (open_id, name) VALUES (?, ?) ON CONFLICT(open_id) DO UPDATE SET name = excluded.name',
+    );
+    this.db.transaction(() => {
+      for (const [id, name] of names) insert.run(id, name);
+    })();
   }
 
   close(): void {

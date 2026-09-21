@@ -54,7 +54,7 @@ function FeedbackDialog({ record: r, onClose }: { record: LarkRecord; onClose: (
   const f = r.fields;
   const id = f.rid || shortDate(f.reportedDate ?? '') || r.recordId;
   return (
-    <RecordDialog id={id} label={`Feedback ${id}`} url={r.url} onClose={onClose}
+    <RecordDialog id={id} label={`Feedback ${id}`} url={r.url} onClose={onClose} table="feedback" recordId={r.recordId}
       tags={<>
         {f.category && <span className={`tag ${categoryClass(f.category)}`} title={f.category}>{shortCategory(f.category)}</span>}
         {f.status && <span className={`tag ${TONE_TAG[feedbackStatusTone(f.status)]}`}>{f.status}</span>}
@@ -68,7 +68,8 @@ function FeedbackDialog({ record: r, onClose }: { record: LarkRecord; onClose: (
         { label: 'PIC', value: f.pic },
         { label: 'R&D task', value: f.taskLink },
       ]}
-      textLabel="Feedback / suggestion" text={f.text ?? ''}
-      attachments={r.attachments} attachmentHref={(a) => attachmentUrl('feedback', r.recordId, a)} />
+      texts={[{ label: 'Feedback / suggestion', text: f.text ?? '' }]}
+      files={[{ label: 'Attachments', attachments: r.attachments }]}
+      attachmentHref={(a) => attachmentUrl('feedback', r.recordId, a)} />
   );
 }

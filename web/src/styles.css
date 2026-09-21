@@ -247,6 +247,10 @@ a.btn.primary:hover { color: #fff; }
 .dlg-title .mono { font-size: 0.9375rem; }
 .dlg.record .dlg-body { gap: 18px; }
 .kv2 { grid-template-columns: max-content minmax(0, 1fr) max-content minmax(0, 1fr); gap: 8px 20px; align-items: baseline; overflow-wrap: anywhere; }
+/* A task's own name heads its dialog: prose, not a ticket id, so it wraps instead of running off the line. */
+.dlg-name { font-size: 0.9375rem; font-weight: 600; overflow-wrap: anywhere; }
+/* Progress as a field value: the same bar the row uses, with the number beside it. */
+.pgr { display: inline-flex; align-items: center; gap: 8px; }
 .caps { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
 .record-text { font-size: 0.875rem; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
 .atts { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -255,6 +259,20 @@ a.btn.primary:hover { color: #fff; }
 .att-img { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 110px; width: 100%; object-fit: cover; background: var(--grey-soft); color: var(--muted); font-size: 0.75rem; }
 .att-name { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; font-size: 0.75rem; min-width: 0; }
 button.att { text-align: left; padding: 0; }
+
+/* A record's Lark comments. The dialog body is already the scroll container, so this list just flows. */
+.cmts { display: flex; flex-direction: column; gap: 10px; }
+.cmt-thread { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+.cmt { display: flex; flex-direction: column; gap: 5px; }
+/* Later replies answer the one above them, so they step in behind a rule. */
+.cmt + .cmt { padding-left: 12px; border-left: 2px solid var(--border); }
+.cmt-h { display: flex; align-items: baseline; gap: 8px; }
+.cmt-who { font-size: 0.8125rem; font-weight: 600; }
+.cmt-text { font-size: 0.875rem; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+.cmt-shots { display: flex; flex-wrap: wrap; gap: 6px; }
+.cmt-shot { padding: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--grey-soft); line-height: 0; }
+.cmt-shot:hover { border-color: var(--accent); }
+.cmt-shot img { display: block; height: 72px; width: auto; max-width: 180px; object-fit: cover; }
 
 /* ---- Authorization banner (under the header) and the Connections card ---- */
 .banner { display: flex; align-items: center; gap: 12px; padding: 8px 24px; font-size: 0.8125rem; border-bottom: 1px solid var(--border2); }

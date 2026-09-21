@@ -4,6 +4,7 @@ import { IconChevronLeft, IconChevronRight, IconClose, IconDownload, IconExterna
 import { formatSize } from './larkFormat';
 import type { AttachmentKind } from './larkFormat';
 
+/** `size` is 0 when it is not known, as for an image pasted into a comment; the viewer then shows no size. */
 export interface LightboxItem { src: string; name: string; size: number; kind: AttachmentKind }
 
 interface Props {
@@ -137,7 +138,7 @@ export function Lightbox({ items, index, onIndex, onClose }: Props) {
     <div className="lightbox" role="dialog" aria-modal="true" aria-label={`${item.name}, ${index + 1} of ${count}`} onClick={(e) => e.stopPropagation()}>
       <div className="lb-top">
         <span className="lb-name clip" title={item.name}>{item.name}</span>
-        <span className="lb-meta mono">{formatSize(item.size)}{count > 1 ? ` · ${index + 1} / ${count}` : ''}</span>
+        <span className="lb-meta mono">{item.size > 0 ? formatSize(item.size) : ''}{count > 1 ? `${item.size > 0 ? ' · ' : ''}${index + 1} / ${count}` : ''}</span>
         {isImage && (
           <span className="lb-zoom">
             <button className="lb-btn" title="Zoom out (−)" onClick={() => zoomAt(1 / STEP)} disabled={view.scale <= MIN}><IconZoomOut size={16} /></button>

@@ -112,6 +112,8 @@ export interface LarkRecord {
   fields: Record<string, string>;
   /** Files in the table's mapped attachment column; present only when the column is configured. Served by /api/lark/attachments. */
   attachments?: LarkAttachment[];
+  /** Files attached when the record was resolved or closed, kept apart from the reporter's own attachments. */
+  resolvedAttachments?: LarkAttachment[];
 }
 export interface LarkGroup {
   status: string;
@@ -156,6 +158,34 @@ export interface LarkViewInfo {
   type: string;
   /** lark-cli's one-line summary of the view's filter, grouping and visible fields, when it gives one. */
   summary: string | null;
+}
+
+// ---- Record comments ----
+// A Base record's comments are Drive comments on the Base document, anchored to the record. Lark offers no way to
+// ask for one record's comments, so the server keeps an index of which thread belongs to which record.
+/** One reply inside a comment thread. */
+export interface LarkCommentReply {
+  id: string;
+  /** The author's name, or their open_id when the contact lookup could not resolve it. */
+  author: string;
+  /** Epoch ms. */
+  createdAt: number;
+  /** The reply's text, with @mentions already written out as "@Name". */
+  text: string;
+  /** Drive media tokens of the images pasted into this reply; served by /api/lark/comments/image. */
+  images: string[];
+}
+/** One comment thread on a record. Lark's own comment panel shows each thread as a separate card. */
+export interface LarkComment {
+  id: string;
+  isSolved: boolean;
+  replies: LarkCommentReply[];
+}
+/** What /api/lark/comments/:table/:recordId answers. */
+export interface LarkCommentsResponse {
+  comments: LarkComment[];
+  /** True while the first sweep of the Base's comments is still running, so the list may be short. */
+  indexing: boolean;
 }
 
 // ---- App Store Connect ----

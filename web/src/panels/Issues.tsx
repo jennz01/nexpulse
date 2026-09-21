@@ -73,7 +73,7 @@ function IssueDialog({ record: r, first, onClose }: { record: LarkRecord; first:
   const age = f.hoursSince ?? '';
   const id = f.ticketId || r.recordId;
   return (
-    <RecordDialog id={id} label={`Issue ${id}`} url={r.url} onClose={onClose}
+    <RecordDialog id={id} label={`Issue ${id}`} url={r.url} onClose={onClose} table="issues" recordId={r.recordId}
       tags={<>
         {f.status && <span className={`tag ${f.status === first ? 'fail' : 'warn'}`}>{f.status}</span>}
         {f.priority && <span className={`tag ${priorityClass(f.priority)}`}>{f.priority}</span>}
@@ -86,7 +86,14 @@ function IssueDialog({ record: r, first, onClose }: { record: LarkRecord; first:
         { label: 'Tagged PIC', value: f.taggedPic },
         { label: 'Module PIC', value: f.modulePic },
       ]}
-      textLabel="Issue description" text={f.description ?? ''}
-      attachments={r.attachments} attachmentHref={(a) => attachmentUrl('issues', r.recordId, a)} />
+      texts={[
+        { label: 'Issue description', text: f.description ?? '' },
+        { label: 'Resolved / closed remark', text: f.resolvedRemark ?? '' },
+      ]}
+      files={[
+        { label: 'Attachments', attachments: r.attachments },
+        { label: 'Resolved / closed attachment', attachments: r.resolvedAttachments },
+      ]}
+      attachmentHref={(a) => attachmentUrl('issues', r.recordId, a)} />
   );
 }

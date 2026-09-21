@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { LarkTableKey } from './config';
 import { SOURCE_IDS } from '../shared/types';
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
 import { AccountInputError } from './accounts';
 import type { StoreAccounts } from './accounts';
 import type { Scheduler } from './scheduler';
@@ -45,6 +45,10 @@ const REPO_NAME = /^[\w.-]+\/[\w.-]+$/;
 export interface LarkActions {
   /** Streams a Base attachment, downloaded through lark-cli and cached on disk; `range` is the request's Range header. */
   attachment(table: LarkTableKey, recordId: string, token: string, name: string, range?: string | null): Promise<Response>;
+  /** One record's comment threads, read from Lark as they are now. */
+  comments(table: LarkTableKey, recordId: string): Promise<LarkCommentsResponse>;
+  /** Streams an image pasted into a comment, downloaded through lark-cli and cached on disk. */
+  commentImage(token: string): Promise<Response>;
   /** Tables in the configured Base, for the Settings picker. */
   listTables(): Promise<LarkTableInfo[]>;
   /** One table's views, for the Settings picker. */
@@ -59,6 +63,9 @@ const BASE_TOKEN = /^[A-Za-z0-9]{10,}$/;
 const usableBaseToken = (t: string): boolean => BASE_TOKEN.test(t) && !/XXXX/.test(t);
 const TABLE_ID = /^tbl[A-Za-z0-9]+$/;
 const VIEW_ID = /^vew[A-Za-z0-9]+$/;
+const RECORD_ID = /^rec[A-Za-z0-9]{4,40}$/;
+/** Base file tokens and Drive media tokens share this shape. */
+const FILE_TOKEN = /^[A-Za-z0-9_-]{8,80}$/;
 const LARK_DOMAIN = /^[a-z0-9.-]+\.[a-z]{2,}$/;
 
 export interface AppDeps {
@@ -179,7 +186,7 @@ export function createApp(deps: AppDeps): Hono {
     const table = c.req.param('table') ?? '';
     const recordId = c.req.param('recordId') ?? '';
     const token = c.req.param('token') ?? '';
-    if (!isLarkTable(table) || !/^rec[A-Za-z0-9]{4,40}$/.test(recordId) || !/^[A-Za-z0-9_-]{8,80}$/.test(token)) return c.json({ error: 'bad attachment reference' }, 400);
+    if (!isLarkTable(table) || !RECORD_ID.test(recordId) || !FILE_TOKEN.test(token)) return c.json({ error: 'bad attachment reference' }, 400);
     const name = c.req.param('name') ?? c.req.query('name') ?? 'file';
     try {
       return await deps.lark.attachment(table, recordId, token, name, c.req.header('range') ?? null);
@@ -189,6 +196,31 @@ export function createApp(deps: AppDeps): Hono {
   };
   app.get('/api/lark/attachments/:table/:recordId/:token/:name', attachment);
   app.get('/api/lark/attachments/:table/:recordId/:token', attachment);
+
+  // A record's comments. Its own path rather than part of /api/state: comments are read on demand, not polled.
+  app.get('/api/lark/comments/:table/:recordId', async (c) => {
+    if (!deps.lark) return c.json({ error: deps.disabled.lark ?? 'Lark not configured' }, 409);
+    const table = c.req.param('table') ?? '';
+    const recordId = c.req.param('recordId') ?? '';
+    if (!isLarkTable(table) || !RECORD_ID.test(recordId)) return c.json({ error: 'bad record reference' }, 400);
+    try {
+      return c.json(await deps.lark.comments(table, recordId));
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 502);
+    }
+  });
+
+  // Images pasted into comments live on their own path: a media token belongs to no table or record.
+  app.get('/api/lark/comment-images/:token', async (c) => {
+    if (!deps.lark) return c.json({ error: deps.disabled.lark ?? 'Lark not configured' }, 409);
+    const token = c.req.param('token') ?? '';
+    if (!FILE_TOKEN.test(token)) return c.json({ error: 'bad image reference' }, 400);
+    try {
+      return await deps.lark.commentImage(token);
+    } catch (e) {
+      return c.json({ error: (e as Error).message }, 502);
+    }
+  });
 
   // ---- gh / lark-cli sessions: status and server-driven device-code sign-ins ----
   app.get('/api/auth/status', async (c) => {

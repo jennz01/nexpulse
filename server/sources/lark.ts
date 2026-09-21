@@ -99,13 +99,17 @@ export function parseAttachments(v: unknown): LarkAttachment[] {
   });
 }
 
-/** Maps the configured columns to display strings; the `attachments` column (when mapped) becomes structured data instead. */
+/** Logical names whose column holds files rather than text; each becomes structured data on the record. */
+const isFileField = (logical: string): logical is 'attachments' | 'resolvedAttachments' =>
+  logical === 'attachments' || logical === 'resolvedAttachments';
+
+/** Maps the configured columns to display strings; an attachment column (when mapped) becomes structured data instead. */
 export function mapRecord(raw: RawRecord, fields: Record<string, string | undefined>, url: string): LarkRecord {
   const out: Record<string, string> = {};
   const rec: LarkRecord = { recordId: raw.record_id, url, fields: out };
   for (const [logical, larkName] of Object.entries(fields)) {
     if (!larkName) continue;
-    if (logical === 'attachments') rec.attachments = parseAttachments(raw.fields[larkName]);
+    if (isFileField(logical)) rec[logical] = parseAttachments(raw.fields[larkName]);
     else out[logical] = cellToString(raw.fields[larkName]);
   }
   return rec;

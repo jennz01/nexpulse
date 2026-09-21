@@ -36,7 +36,17 @@
           "pic": "PIC",
           "type": "Task Type",
           "priority": "Priority",
-          "progress": "Progress"
+          "progress": "Progress",
+          "rid": "RID",
+          "description": "Description",
+          "category": "Category",
+          "devStart": "Dev Start Date",
+          "devEnd": "Dev End Date",
+          "onHold": "On Hold Status",
+          "deployment": "Deployment Status",
+          "erpVersion": "ERP Version",
+          "server": "Server",
+          "attachments": "Task Attachment"
         },
         "groupOrder": [
           "PENDING TO LAUNCH",
@@ -62,7 +72,9 @@
           "reportedBy": "Reported By",
           "taggedPic": "Tagged PIC",
           "modulePic": "Module PIC",
-          "attachments": "Attachment"
+          "attachments": "Attachment",
+          "resolvedRemark": "*Resolved/Closed Remark",
+          "resolvedAttachments": "Resolved/Closed Attachment"
         }
       },
       "feedback": {
