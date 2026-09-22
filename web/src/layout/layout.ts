@@ -26,14 +26,14 @@ export type CardPatch = Partial<Omit<CardLayout, 'id'>>;
 /** The Home page: every panel exactly once, in display order. Hidden cards keep their place so un-hiding puts them back. */
 export interface HomeLayout { version: 1; cards: CardLayout[] }
 
-export const HOME_PANELS: PanelId[] = ['prs', 'tasks', 'issues', 'feedback', 'builds', 'stores'];
-export const PANEL_TITLE: Record<PanelId, string> = { prs: 'Pull Requests', tasks: 'Tasks', issues: 'Issues', feedback: 'Merchant Feedback', builds: 'Builds', stores: 'Stores' };
+export const HOME_PANELS: PanelId[] = ['prs', 'tasks', 'issues', 'feedback', 'builds', 'releases', 'stores'];
+export const PANEL_TITLE: Record<PanelId, string> = { prs: 'Pull Requests', tasks: 'Tasks', issues: 'Issues', feedback: 'Merchant Feedback', builds: 'Builds', releases: 'Releases', stores: 'Stores' };
 
 const card = (id: PanelId, hidden = false, w: Width = 3): CardLayout => ({ id, w, h: 'auto', tint: 'none', hidden });
 /** Reproduces the original page: four half-width panels; Builds and Stores stay on their own pages. */
 export const DEFAULT_LAYOUT: HomeLayout = {
   version: 1,
-  cards: [card('prs'), card('tasks'), card('issues'), card('feedback'), card('builds', true, 6), card('stores', true, 6)],
+  cards: [card('prs'), card('tasks'), card('issues'), card('feedback'), card('builds', true, 6), card('releases', true, 6), card('stores', true, 6)],
 };
 
 const KEY = 'dashboard.layout';

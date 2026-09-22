@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { PanelId } from '../../shared/types';
 
-export type Page = 'home' | 'builds' | 'stores' | 'settings';
-export const PAGES: Page[] = ['home', 'builds', 'stores', 'settings'];
+export type Page = 'home' | 'builds' | 'releases' | 'stores' | 'settings';
+export const PAGES: Page[] = ['home', 'builds', 'releases', 'stores', 'settings'];
 /** Pages in the sidebar's main navigation; Settings sits at the bottom. */
-export const NAV_PAGES: Page[] = ['home', 'builds', 'stores'];
-export const PAGE_TITLE: Record<Page, string> = { home: 'Home', builds: 'Builds', stores: 'Stores', settings: 'Settings' };
+export const NAV_PAGES: Page[] = ['home', 'builds', 'releases', 'stores'];
+export const PAGE_TITLE: Record<Page, string> = { home: 'Home', builds: 'Builds', releases: 'Releases', stores: 'Stores', settings: 'Settings' };
 
 /** "#/builds" -> 'builds'; anything unknown (including an empty hash) -> 'home'. */
 export function parseHash(hash: string): Page {
@@ -15,9 +15,9 @@ export function parseHash(hash: string): Page {
 
 export const hashFor = (page: Page): string => (page === 'home' ? '#/' : `#/${page}`);
 
-/** Which page hosts a panel: Builds and Stores have their own pages, the rest live on Home. */
+/** Which page hosts a panel: Builds, Releases and Stores have their own pages, the rest live on Home. */
 export function pageForPanel(panel: PanelId): Page {
-  return panel === 'builds' || panel === 'stores' ? panel : 'home';
+  return panel === 'builds' || panel === 'releases' || panel === 'stores' ? panel : 'home';
 }
 
 /** Hash-based routing: no dependency, bookmarkable, and the server's index.html fallback is never involved. */

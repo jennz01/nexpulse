@@ -13,6 +13,7 @@ import { notifyHighEvents, toastable, updateTitle } from './notify';
 import { BuildsPage } from './pages/BuildsPage';
 import type { PageContext } from './pages/context';
 import { HomePage } from './pages/HomePage';
+import { ReleasesPage } from './pages/ReleasesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { StoresPage } from './pages/StoresPage';
 import { PAGE_TITLE, pageForPanel, useMediaQuery, usePage } from './router';
@@ -168,6 +169,7 @@ export default function App() {
 
         {page === 'home' && <HomePage {...ctx} />}
         {page === 'builds' && <BuildsPage {...ctx} />}
+        {page === 'releases' && <ReleasesPage {...ctx} />}
         {page === 'stores' && <StoresPage {...ctx} />}
         {page === 'settings' && <SettingsPage {...ctx} />}
         {authDialog && <AuthDialog provider={authDialog} onClose={() => setAuthDialog(null)} onDone={() => { void refreshAuth(true); void load(); }} />}

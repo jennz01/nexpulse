@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import type { AttentionChip, Event, PanelId, Tone } from '../../shared/types';
-import { IconBuilds, IconChevronLeft, IconChevronRight, IconHome, IconLogo, IconSettings, IconStores } from './icons';
+import { IconBuilds, IconChevronLeft, IconChevronRight, IconHome, IconLogo, IconReleases, IconSettings, IconStores } from './icons';
 import type { Page } from './router';
 import { NAV_PAGES, PAGE_TITLE, pageForPanel } from './router';
 
 const PAGE_ICON: Record<Page, ReactNode> = {
-  home: <IconHome size={18} />, builds: <IconBuilds size={18} />, stores: <IconStores size={18} />, settings: <IconSettings size={18} />,
+  home: <IconHome size={18} />, builds: <IconBuilds size={18} />, releases: <IconReleases size={18} />, stores: <IconStores size={18} />, settings: <IconSettings size={18} />,
 };
 const TONE_RANK: Record<Tone, number> = { red: 3, amber: 2, blue: 1, grey: 0 };
 

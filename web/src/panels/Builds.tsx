@@ -16,9 +16,16 @@ interface Props {
   full?: boolean;
 }
 
+/**
+ * One row per workflow for the compact list. Bulk-release builds have no workflow id at all, so they fall back to
+ * their run: a 24-brand release collapses to the single row it reads as, rather than 24 identical ones.
+ */
 export function latestPerWorkflow(app: CodemagicApp): Build[] {
   const seen = new Set<string>();
-  return app.builds.filter((b) => (seen.has(b.workflowId) ? false : (seen.add(b.workflowId), true)));
+  return app.builds.filter((b) => {
+    const key = b.workflowId ?? b.runId ?? b.id;
+    return seen.has(key) ? false : (seen.add(key), true);
+  });
 }
 
 export function statusClass(status: string): 'run' | 'fail' | 'ok' | 'warn' | 'plain' {
@@ -49,10 +56,14 @@ export function buildBy(b: Build): string | null {
   return b.startedBy && !/^[0-9a-f]{24}$/i.test(b.startedBy) ? b.startedBy : null;
 }
 
-/** "v1.0.68 (80) · [HOTFIX] …" for the second line of the workflow cell; null when nothing is known. */
+/**
+ * "ROCKMART · v1.0.68 (80) · [HOTFIX] …" for the second line of the workflow cell; null when nothing is known.
+ * The brand leads: every build of a bulk release shares one workflow name and one commit message, so the store
+ * app is the only thing telling them apart.
+ */
 export function buildSubtitle(b: Build): string | null {
   const version = b.version ? `v${b.version}${b.buildNumber != null ? ` (${b.buildNumber})` : ''}` : null;
-  return [version, b.commitMessage].filter(Boolean).join(' · ') || null;
+  return [b.brand, version, b.commitMessage].filter(Boolean).join(' · ') || null;
 }
 
 interface RowProps { app: CodemagicApp; b: Build; ids: number[]; onSee: Props['onSee']; now: number; full: boolean }

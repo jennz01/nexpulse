@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { inFlightCount, releaseApps } from '../../../shared/releases';
 import type { PanelId, PublicConfig } from '../../../shared/types';
 import { refreshSource } from '../api';
 import { IconPlay, IconPlus } from '../icons';
@@ -10,6 +11,7 @@ import { Issues } from './Issues';
 import { Panel } from './Panel';
 import type { PanelProps } from './Panel';
 import { PullRequests } from './PullRequests';
+import { Releases } from './Releases';
 import { StartBuildDialog } from './StartBuildDialog';
 import { Stores } from './Stores';
 import { Tasks } from './Tasks';
@@ -38,6 +40,7 @@ export function renderCard(id: PanelId, ctx: PageContext, chrome: CardChrome): R
     case 'issues': return <IssuesCard ctx={ctx} chrome={chrome} />;
     case 'feedback': return <FeedbackCard ctx={ctx} chrome={chrome} />;
     case 'builds': return <BuildsCard ctx={ctx} chrome={chrome} />;
+    case 'releases': return <ReleasesCard ctx={ctx} chrome={chrome} />;
     case 'stores': return <StoresCard ctx={ctx} chrome={chrome} />;
   }
 }
@@ -112,6 +115,24 @@ export function BuildsCard({ ctx, chrome, full }: CardProps) {
       </Panel>
       {dialog && snapshot && <StartBuildDialog snapshot={snapshot} onClose={() => setDialog(false)} onStarted={onStarted} />}
     </>
+  );
+}
+
+/**
+ * Bulk releases: one commit fanned out into a build per white-label store app. Shares the Codemagic poll and its
+ * events with the Builds panel, so marking seen here clears them there too.
+ */
+export function ReleasesCard({ ctx, chrome }: CardProps) {
+  const { state, now, intervals, unread, showUnread, seeIds, seeSource } = ctx;
+  const snapshot = state.states.codemagic.snapshot;
+  const live = inFlightCount(snapshot);
+  const runs = releaseApps(snapshot).reduce((n, a) => n + a.runs.length, 0);
+  return (
+    <Panel id="releases" title="Releases" count={snapshot ? (live > 0 ? `${live} in flight` : `${runs} release${runs === 1 ? '' : 's'}`) : undefined}
+      unread={showUnread ? unread.builds.length : 0} state={state.states.codemagic} intervalSec={intervals.codemagic} now={now}
+      onRefresh={() => void refreshSource('codemagic')} onMarkAllSeen={() => seeSource('codemagic')} openUrl="https://codemagic.io/apps" {...chrome}>
+      <Releases snapshot={snapshot} events={state.events} onSee={seeIds} now={now} />
+    </Panel>
   );
 }
 

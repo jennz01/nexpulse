@@ -63,7 +63,8 @@ export interface BuildArtifact {
 export interface Build {
   id: string;
   appId: string;
-  workflowId: string;
+  /** Null on builds started by a bulk release, which carry a file workflow instead of a UI one. */
+  workflowId: string | null;
   workflowName: string;
   branch: string;
   status: string; // queued | preparing | fetching | building | testing | publishing | finishing | finished | failed | canceled | timeout | skipped | warning
@@ -83,6 +84,18 @@ export interface Build {
   version?: string | null;
   /** Codemagic's running build number for the app. */
   buildNumber?: number | null;
+  /** When Codemagic accepted the build. Unlike startedAt this is set while a build is still queued, so it is the sort key. */
+  createdAt?: string | null;
+  /** Commit hash. Every build of one bulk release shares it, so it identifies the release run. */
+  runId?: string | null;
+  /** White-label store app this build produces, e.g. "ZEFIKS" (from the build's APP_NAME variable). */
+  brand?: string | null;
+  /** SiteGiant store id behind the brand, e.g. "6531". */
+  storeId?: string | null;
+  /** Bundle/application id, e.g. "my.sitegiant.shop.s100070". */
+  bundleId?: string | null;
+  /** Brand app icon, shown on the Releases page. */
+  iconUrl?: string | null;
 }
 export interface CodemagicWorkflow {
   id: string;
@@ -92,7 +105,9 @@ export interface CodemagicApp {
   id: string;
   name: string;
   workflows: CodemagicWorkflow[];
-  builds: Build[]; // newest first, max 10
+  builds: Build[]; // newest first
+  /** True when Codemagic still had older builds when the poll stopped paging, so the oldest run here may be cut short. */
+  moreBuilds?: boolean;
 }
 export interface CodemagicSnapshot {
   apps: CodemagicApp[];
@@ -313,7 +328,7 @@ export interface LoginState {
 }
 
 // ---- UI ----
-export type PanelId = 'prs' | 'builds' | 'tasks' | 'issues' | 'feedback' | 'stores';
+export type PanelId = 'prs' | 'builds' | 'releases' | 'tasks' | 'issues' | 'feedback' | 'stores';
 export type Tone = 'red' | 'amber' | 'blue' | 'grey';
 export interface AttentionChip {
   id: string;

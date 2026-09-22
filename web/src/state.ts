@@ -63,7 +63,7 @@ export function panelForEvent(e: Event): PanelId | null {
 }
 
 export function unreadByPanel(events: Event[]): Record<PanelId, Event[]> {
-  const out: Record<PanelId, Event[]> = { prs: [], builds: [], tasks: [], issues: [], feedback: [], stores: [] };
+  const out: Record<PanelId, Event[]> = { prs: [], builds: [], releases: [], tasks: [], issues: [], feedback: [], stores: [] };
   for (const e of events) {
     const panel = panelForEvent(e);
     if (panel) out[panel].push(e);

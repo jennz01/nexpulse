@@ -201,6 +201,28 @@ a.btn.primary:hover { color: #fff; }
 .more { text-decoration: underline dotted; }
 .more:hover { color: var(--text); }
 
+/* ---- Releases page ---- */
+.releases { overflow-x: auto; }
+.releases .group, .relrun { min-width: 940px; }
+.relrun { border-bottom: 1px solid var(--border2); }
+.relrun:last-child { border-bottom: 0; }
+.relrun-h { display: grid; grid-template-columns: 16px minmax(200px, 1.7fr) minmax(150px, 0.9fr) minmax(150px, 0.8fr); gap: 14px; align-items: center; width: 100%; padding: 11px 16px; box-sizing: border-box; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.relrun-h:hover { background: var(--surface2); }
+.relrun.open .relrun-h { background: var(--surface2); }
+.relrun-chev { display: inline-flex; color: var(--muted); }
+.relrun-title { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 0.875rem; font-weight: 500; }
+.relrun-prog { display: flex; align-items: center; gap: 8px; }
+.rbar { position: relative; flex: 1; min-width: 70px; height: 6px; border-radius: 999px; background: var(--grey-soft); overflow: hidden; }
+.rbar > i { display: block; height: 100%; border-radius: 999px; background: var(--green); transition: width 0.4s ease; }
+.rbar.hasfail > i { background: linear-gradient(90deg, var(--green), var(--red)); }
+.relrun-counts { text-align: right; }
+.rrow { display: grid; grid-template-columns: 6px 22px minmax(150px, 1.6fr) 104px 58px 128px 68px minmax(150px, 1.2fr) 26px; gap: 12px; align-items: center; padding: var(--row-py) 16px; border-top: 1px solid var(--border2); font-size: 0.875rem; box-sizing: border-box; }
+.rrow.new { background: var(--surface2); }
+.rrow.click { cursor: pointer; }
+.rrow.click:hover { background: var(--surface2); }
+.brandicon { display: block; width: 22px; height: 22px; border-radius: 5px; object-fit: cover; background: var(--grey-soft); }
+.releases .arts a { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+
 /* ---- Settings page ---- */
 .settings { display: flex; flex-direction: column; gap: 20px; max-width: 980px; }
 .card-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }

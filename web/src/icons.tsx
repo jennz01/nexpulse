@@ -26,6 +26,7 @@ export const IconCheck = (p: P) => <Svg {...p}><path d="m5 12 5 5L20 7" /></Svg>
 export const IconChevronLeft = (p: P) => <Svg {...p}><path d="m15 6-6 6 6 6" /></Svg>;
 export const IconHome = (p: P) => <Svg {...p}><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" /></Svg>;
 export const IconBuilds = (p: P) => <Svg {...p}><path d="m21 8-9-5-9 5v8l9 5 9-5z" /><path d="m3 8 9 5 9-5" /><path d="M12 13v8" /></Svg>;
+export const IconReleases = (p: P) => <Svg {...p}><path d='M12 2c3 2.5 4.5 6 4.5 10L12 16l-4.5-4C7.5 8 9 4.5 12 2z' /><circle cx='12' cy='9' r='2' /><path d='M7.5 14 5 20l4-1.5' /><path d='M16.5 14 19 20l-4-1.5' /></Svg>;
 export const IconStores = (p: P) => <Svg {...p}><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M11 18h2" /></Svg>;
 export const IconSliders = (p: P) => <Svg {...p}><path d="M4 21v-7" /><path d="M4 10V3" /><path d="M12 21v-9" /><path d="M12 8V3" /><path d="M20 21v-5" /><path d="M20 12V3" /><path d="M1 14h6" /><path d="M9 8h6" /><path d="M17 16h6" /></Svg>;
 export const IconGrip = (p: P) => (
