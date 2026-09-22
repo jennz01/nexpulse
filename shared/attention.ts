@@ -1,6 +1,7 @@
+import { releaseRuns } from './releases';
 import { APPSTORE_ATTENTION_STATES, APPSTORE_REJECTED_STATES, PLAY_ATTENTION_STATUSES, humanState, isBuildFailed, isBuildRunning } from './status';
 import { SOURCE_IDS } from './types';
-import type { AttentionChip, PublicConfig, SourceStates } from './types';
+import type { AttentionChip, PanelId, PublicConfig, SourceStates } from './types';
 
 export function emptyStates(): SourceStates {
   const out: Record<string, unknown> = {};
@@ -34,14 +35,20 @@ export function computeAttention(states: SourceStates, config: Pick<PublicConfig
 
   const cm = states.codemagic.snapshot;
   if (cm) {
-    const all = cm.apps.flatMap((app) => app.builds.map((b) => ({ app, b })));
-    const failed = all.filter(({ b }) => isBuildFailed(b.status) && b.finishedAt && now - Date.parse(b.finishedAt) < DAY_MS);
-    if (failed.length) {
-      const one = failed.length === 1 ? failed[0] : null;
-      chip({ id: 'builds-failed', text: `${plural(failed.length, 'build')} failed`, detail: one ? `${one.app.name} · ${one.b.workflowName}` : null, tone: 'red', target: 'builds' });
+    // A chip has to land on the builds it counted, and a bulk release's builds are listed on their own page rather
+    // than on Builds, so the counts split the same way the two pages do.
+    const inRuns = new Set(cm.apps.flatMap((app) => releaseRuns(app).flatMap((r) => r.builds.map((b) => b.id))));
+    const all = cm.apps.flatMap((app) => app.builds.map((b) => ({ app, b, target: (inRuns.has(b.id) ? 'releases' : 'builds') as PanelId })));
+    for (const target of ['builds', 'releases'] as PanelId[]) {
+      const mine = all.filter((x) => x.target === target);
+      const failed = mine.filter(({ b }) => isBuildFailed(b.status) && b.finishedAt && now - Date.parse(b.finishedAt) < DAY_MS);
+      if (failed.length) {
+        const one = failed.length === 1 ? failed[0] : null;
+        chip({ id: `${target}-failed`, text: `${plural(failed.length, 'build')} failed`, detail: one ? `${one.app.name} · ${one.b.brand ?? one.b.workflowName}` : null, tone: 'red', target });
+      }
+      const running = mine.filter(({ b }) => isBuildRunning(b.status)).length;
+      if (running) chip({ id: `${target}-running`, text: `${running} building`, tone: 'grey', target, pulse: true });
     }
-    const running = all.filter(({ b }) => isBuildRunning(b.status)).length;
-    if (running) chip({ id: 'builds-running', text: `${running} building`, tone: 'grey', target: 'builds', pulse: true });
   }
 
   const lark = states.lark.snapshot;

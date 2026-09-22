@@ -5,7 +5,7 @@ export type Page = 'home' | 'builds' | 'releases' | 'stores' | 'settings';
 export const PAGES: Page[] = ['home', 'builds', 'releases', 'stores', 'settings'];
 /** Pages in the sidebar's main navigation; Settings sits at the bottom. */
 export const NAV_PAGES: Page[] = ['home', 'builds', 'releases', 'stores'];
-export const PAGE_TITLE: Record<Page, string> = { home: 'Home', builds: 'Builds', releases: 'Releases', stores: 'Stores', settings: 'Settings' };
+export const PAGE_TITLE: Record<Page, string> = { home: 'Home', builds: 'Builds', releases: 'Shopping App', stores: 'AppStore/PlayStore', settings: 'Settings' };
 
 /** "#/builds" -> 'builds'; anything unknown (including an empty hash) -> 'home'. */
 export function parseHash(hash: string): Page {

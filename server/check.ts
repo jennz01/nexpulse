@@ -44,7 +44,7 @@ async function main(): Promise<number> {
     }
     const t0 = Date.now();
     try {
-      const snap: unknown = await reg.source.fetch(reg.ctx);
+      const snap: unknown = await reg.source.fetch(reg.ctx, null, true);
       rows.push([id, 'OK', `${Date.now() - t0} ms · ${summarize(id, snap)}`]);
     } catch (err) {
       failed = true;

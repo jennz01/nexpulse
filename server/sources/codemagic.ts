@@ -30,8 +30,13 @@ interface RawBuild {
 
 /** Codemagic caps one page of /builds at 30 whatever limit is asked for, so paging is the only way past it. */
 export const PAGE_SIZE = 30;
-/** Safety valve: never spend more than this many pages on a single app, however long its run is. */
-export const MAX_PAGES = 5;
+/**
+ * Safety valve: never spend more than this many pages on a single app, however long its run is. A shopping-app
+ * release fans out to roughly 70 builds, which needs three pages for the run and a fourth for history, so this
+ * leaves room for a release several times that size before the live run itself would start being cut off. It is a
+ * ceiling rather than a target: an app that needs one page still costs one page.
+ */
+export const MAX_PAGES = 8;
 
 /** Brand variables arrive URL-encoded ("Mochi%20Friends"); a stray % must not take the whole poll down. */
 function safeDecode(value: string | undefined): string | null {
@@ -140,38 +145,104 @@ export async function codemagicJson(fetchImpl: typeof fetch, token: string, path
   return res.json();
 }
 
-/**
- * One app's builds, paging only as far as the data demands: a single page for an ordinary app, and for one whose
- * builds fan out into runs, enough pages to hold the newest run whole plus one more so the last finished run is
- * complete too. `moreBuilds` records that Codemagic still had older builds, which makes the oldest run here partial.
- */
-async function fetchAppBuilds(ctx: SourceContext<CodemagicConfig>, app: AppMeta): Promise<{ builds: Build[]; moreBuilds: boolean }> {
-  const page = (skip: number) =>
-    codemagicJson(ctx.fetch, ctx.config.token, `/builds?appId=${encodeURIComponent(app.id)}&limit=${PAGE_SIZE}&skip=${skip}`);
-  let raw = await page(0);
-  let builds = parseBuilds(raw, app);
-  let more = hasNextPage(raw);
-  // Paging deeper is only worth it for an app that bulk-releases, and that is read off the data rather than
-  // configured: a new bulk-releasing app starts paging on its own, and a retired one stops costing anything.
-  if (!hasFanOut(builds)) return { builds, moreBuilds: more };
+/** How many builds are kept per app. The oldest fall off beyond this, bounding both the stored snapshot and the state the browser loads. */
+export const MAX_BUILDS = PAGE_SIZE * MAX_PAGES;
 
-  const take = async () => {
-    raw = await page(builds.length);
-    builds = sortBuilds([...builds, ...parseBuilds(raw, app)]);
-    more = hasNextPage(raw);
-  };
-  let pages = 1;
-  while (more && pages < MAX_PAGES && runStillOpen(builds)) { await take(); pages++; }
-  if (more && pages < MAX_PAGES) { await take(); pages++; } // one page of history past the live run
-  return { builds, moreBuilds: more };
+/** Newest first, with this poll's answer winning over anything stored for the same build. */
+export function mergeBuilds(fetched: Build[], stored: Build[]): Build[] {
+  const fresh = new Set(fetched.map((b) => b.id));
+  return sortBuilds([...fetched, ...stored.filter((b) => !fresh.has(b.id))]).slice(0, MAX_BUILDS);
 }
 
-export async function fetchCodemagic(ctx: SourceContext<CodemagicConfig>): Promise<CodemagicSnapshot> {
+/**
+ * One app's builds, merged into what the last poll stored.
+ *
+ * A build that has reached a terminal status never changes again, so re-reading it every thirty seconds is waste:
+ * on a release fanning out to seventy store apps that is megabytes a minute spent on builds that finished hours
+ * ago. So each poll reads from the newest build downwards only as far as the first page it already knows to be
+ * settled, and keeps everything below that from the stored snapshot.
+ *
+ * When nothing is in flight the poll is cheap anyway, so it spends one page extending the window downwards
+ * instead. That is how history fills in: a run too deep to reach in a single poll completes over the quiet polls
+ * that follow, rather than costing anything while a release is actually running.
+ */
+async function fetchAppBuilds(
+  ctx: SourceContext<CodemagicConfig>,
+  app: AppMeta,
+  stored: Build[],
+  storedMore: boolean,
+): Promise<{ builds: Build[]; moreBuilds: boolean }> {
+  const known = new Map(stored.map((b) => [b.id, b]));
+  const alreadySettled = (b: Build): boolean => {
+    const before = known.get(b.id);
+    return !!before && !isRunning(before.status);
+  };
+  const page = async (skip: number) => {
+    const raw = await codemagicJson(ctx.fetch, ctx.config.token, `/builds?appId=${encodeURIComponent(app.id)}&limit=${PAGE_SIZE}&skip=${skip}`);
+    return { batch: parseBuilds(raw, app), more: hasNextPage(raw) };
+  };
+
+  // The builds that could have moved since last time are exactly the ones that were not finished then. Codemagic
+  // works a run oldest first and adds new builds on top, so those live builds sit at the newest end -- usually
+  // inside the very first page.
+  const wasLive = [...known.values()].filter((b) => isRunning(b.status)).map((b) => b.id);
+  const fetchedIds = new Set<string>();
+
+  const fetched: Build[] = [];
+  let more = false;
+  for (let pages = 0; pages < MAX_PAGES; pages++) {
+    const { batch, more: hasMore } = await page(fetched.length);
+    fetched.push(...batch);
+    for (const b of batch) fetchedIds.add(b.id);
+    more = hasMore;
+    if (batch.length === 0 || !hasMore) break;
+    // Every build that could have changed has been re-read, and this page reaches builds already held, so there is
+    // no gap and nothing below can have moved. This is the case that makes a release poll cheap.
+    if (wasLive.every((id) => fetchedIds.has(id)) && batch.some(alreadySettled)) break;
+    // Paging deeper is only worth it for an app that bulk-releases, and that is read off the data rather than
+    // configured: a new bulk-releasing app starts paging on its own, and a retired one stops costing anything.
+    if (!hasFanOut(fetched) || !runStillOpen(fetched)) break; // the newest run is covered end to end
+  }
+
+  let builds = mergeBuilds(fetched, stored);
+  // `more` describes the page it came from. That is a statement about the whole window only when this poll read to
+  // the bottom of it; when the poll stopped early the stored answer is the one that still holds.
+  let moreBuilds = fetched.length >= builds.length ? more : storedMore;
+
+  if (moreBuilds && builds.length < MAX_BUILDS && !builds.some((b) => isRunning(b.status))) {
+    const { batch, more: hasMore } = await page(builds.length);
+    builds = mergeBuilds([...fetched, ...batch], stored);
+    moreBuilds = hasMore;
+  }
+  return { builds, moreBuilds };
+}
+
+/**
+ * How long an app with nothing in flight may go without being re-read. While a release runs the poll drops to
+ * thirty seconds for the sake of the builds that are moving, and there is no reason to drag six idle apps along at
+ * that rate: every /builds response carries the full application list, so a call for an app with no builds still
+ * costs about a tenth of a megabyte. Idle apps keep the ordinary interval and their stored builds are reused.
+ */
+export const QUIET_APP_MS = 120_000;
+
+export async function fetchCodemagic(ctx: SourceContext<CodemagicConfig>, previous: CodemagicSnapshot | null, force = false): Promise<CodemagicSnapshot> {
   const apps = parseApps(await codemagicJson(ctx.fetch, ctx.config.token, '/apps'));
+  const stored = new Map((previous?.apps ?? []).map((a) => [a.id, a]));
+  const now = ctx.now();
   const out: CodemagicApp[] = [];
   for (let i = 0; i < apps.length; i += 4) {
     const chunk = apps.slice(i, i + 4);
-    const done = await Promise.all(chunk.map(async (app) => ({ ...app, ...(await fetchAppBuilds(ctx, app)) })));
+    const done = await Promise.all(chunk.map(async (app): Promise<CodemagicApp> => {
+      const before = stored.get(app.id);
+      const quiet = !force
+        && before != null
+        && !before.builds.some((b) => isRunning(b.status))
+        && now - (before.checkedAt ?? 0) < QUIET_APP_MS;
+      if (quiet && before) {
+        return { ...app, builds: before.builds, moreBuilds: before.moreBuilds, checkedAt: before.checkedAt };
+      }
+      return { ...app, ...(await fetchAppBuilds(ctx, app, before?.builds ?? [], before?.moreBuilds ?? false)), checkedAt: now };
+    }));
     out.push(...done);
   }
   return { apps: out };

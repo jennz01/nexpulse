@@ -127,10 +127,14 @@ export function releaseRuns(app: CodemagicApp): ReleaseRun[] {
     })
     .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
-  // Only the oldest run can have been cut off by where the poll stopped paging; everything newer is whole by
-  // construction, because paging continues until the live run is complete.
-  const oldest = runs[runs.length - 1];
-  if (oldest && app.moreBuilds) oldest.partial = true;
+  // Only a run that reaches the bottom edge of the fetched window can have been cut off by it. Flagging the oldest
+  // run instead would libel a live release: when the window holds nothing but that one run, it is the oldest run
+  // there is, yet it is complete -- a build below it, of any other run, is the proof its own builds all fit.
+  const oldestBuild = app.builds[app.builds.length - 1];
+  if (app.moreBuilds && oldestBuild) {
+    const atTheEdge = runs.find((r) => r.id === oldestBuild.runId);
+    if (atTheEdge) atTheEdge.partial = true;
+  }
   return runs;
 }
 
@@ -140,6 +144,27 @@ export function releaseApps(snapshot: CodemagicSnapshot | null): { app: Codemagi
   return snapshot.apps
     .map((app) => ({ app, runs: releaseRuns(app) }))
     .filter((entry) => entry.runs.length > 0);
+}
+
+/**
+ * The app's builds that are not part of any bulk release. A run has its own page now, so listing its builds among
+ * the ordinary ones would be the same 24 rows twice -- and here they are the rows nothing tells apart.
+ */
+export function buildsOutsideReleases(app: CodemagicApp): Build[] {
+  const inRuns = new Set(releaseRuns(app).flatMap((r) => r.builds.map((b) => b.id)));
+  return app.builds.filter((b) => !inRuns.has(b.id));
+}
+
+/**
+ * What the Builds page lists: every app that still has something of its own to show, with those builds. An app whose
+ * builds have all moved to a release drops out; an app with no builds at all stays, because there is nothing to move.
+ * The page and its header both count from here, so the heading can never disagree with the rows beneath it.
+ */
+export function appsOutsideReleases(snapshot: CodemagicSnapshot | null): { app: CodemagicApp; builds: Build[] }[] {
+  if (!snapshot) return [];
+  return snapshot.apps
+    .map((app) => ({ app, builds: buildsOutsideReleases(app) }))
+    .filter(({ app, builds }) => builds.length > 0 || app.builds.length === 0);
 }
 
 /** Builds still queued or on a machine across every run — what the page header and the nav badge count. */

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { appsOutsideReleases } from '../../../shared/releases';
 import { isBuildFailed, isBuildRunning } from '../../../shared/status';
 import type { Build, BuildArtifact, CodemagicApp, CodemagicSnapshot, Event } from '../../../shared/types';
 import { artifactUrl } from '../api';
@@ -135,17 +136,17 @@ export function Builds({ snapshot, events, onSee, now, full = false }: Props) {
   if (snapshot.apps.length === 0) return <div className="note">No Codemagic apps visible to this token.</div>;
   const unread = unreadItems(events, 'builds');
 
-  const apps = snapshot.apps.map((app) => {
+  const apps = appsOutsideReleases(snapshot).map(({ app, builds }) => {
     const all = full || expanded[app.id];
-    const shown = all ? app.builds : latestPerWorkflow(app);
+    const shown = all ? builds : latestPerWorkflow({ ...app, builds });
     return (
       <div key={app.id}>
         <div className="group">
           {app.name.toUpperCase()}
           {full ? (
-            <span className="right">{app.builds.length} build{app.builds.length === 1 ? '' : 's'}</span>
-          ) : app.builds.length > shown.length || all ? (
-            <button className="right" onClick={() => setExpanded((e) => ({ ...e, [app.id]: !all }))}>{all ? 'show latest per workflow' : `show all ${app.builds.length}`}</button>
+            <span className="right">{builds.length} build{builds.length === 1 ? '' : 's'}</span>
+          ) : builds.length > shown.length || all ? (
+            <button className="right" onClick={() => setExpanded((e) => ({ ...e, [app.id]: !all }))}>{all ? 'show latest per workflow' : `show all ${builds.length}`}</button>
           ) : null}
         </div>
         {shown.length === 0 && <div className="note">No builds yet.</div>}

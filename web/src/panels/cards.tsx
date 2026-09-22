@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { inFlightCount, releaseApps } from '../../../shared/releases';
+import { appsOutsideReleases, inFlightCount, releaseApps } from '../../../shared/releases';
 import type { PanelId, PublicConfig } from '../../../shared/types';
 import { refreshSource } from '../api';
 import { IconPlay, IconPlus } from '../icons';
@@ -100,11 +100,12 @@ export function BuildsCard({ ctx, chrome, full }: CardProps) {
   const [dialog, setDialog] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const snapshot = state.states.codemagic.snapshot;
-  const total = snapshot ? snapshot.apps.reduce((n, a) => n + a.builds.length, 0) : 0;
+  const listed = appsOutsideReleases(snapshot);
+  const total = listed.reduce((n, a) => n + a.builds.length, 0);
   const onStarted = (id: string) => { setNotice(`Build ${id.slice(0, 8)} started`); setTimeout(() => setNotice(null), 6000); };
   return (
     <>
-      <Panel id="builds" title="Builds" count={snapshot ? `${snapshot.apps.length} apps · ${total} builds` : undefined}
+      <Panel id="builds" title="Builds" count={snapshot ? `${listed.length} apps · ${total} builds` : undefined}
         unread={showUnread ? unread.builds.length : 0} state={state.states.codemagic} intervalSec={intervals.codemagic} now={now}
         onRefresh={() => void refreshSource('codemagic')} onMarkAllSeen={() => seeSource('codemagic')} openUrl="https://codemagic.io/apps"
         headerRight={<>
@@ -128,7 +129,7 @@ export function ReleasesCard({ ctx, chrome }: CardProps) {
   const live = inFlightCount(snapshot);
   const runs = releaseApps(snapshot).reduce((n, a) => n + a.runs.length, 0);
   return (
-    <Panel id="releases" title="Releases" count={snapshot ? (live > 0 ? `${live} in flight` : `${runs} release${runs === 1 ? '' : 's'}`) : undefined}
+    <Panel id="releases" title="Shopping App" count={snapshot ? (live > 0 ? `${live} in flight` : `${runs} release${runs === 1 ? '' : 's'}`) : undefined}
       unread={showUnread ? unread.builds.length : 0} state={state.states.codemagic} intervalSec={intervals.codemagic} now={now}
       onRefresh={() => void refreshSource('codemagic')} onMarkAllSeen={() => seeSource('codemagic')} openUrl="https://codemagic.io/apps" {...chrome}>
       <Releases snapshot={snapshot} events={state.events} onSee={seeIds} now={now} />
@@ -139,7 +140,7 @@ export function ReleasesCard({ ctx, chrome }: CardProps) {
 export function StoresCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals, unread, showUnread, seeIds } = ctx;
   return (
-    <Panel id="stores" title="Stores" count={state.config ? `${state.config.accounts.length} accounts` : undefined}
+    <Panel id="stores" title="AppStore/PlayStore" count={state.config ? `${state.config.accounts.length} accounts` : undefined}
       unread={showUnread ? unread.stores.length : 0} state={[state.states.appstore, state.states.playstore]} intervalSec={intervals.appstore} now={now}
       onRefresh={() => { void refreshSource('appstore'); void refreshSource('playstore'); }} onMarkAllSeen={() => seeIds(unread.stores.map((e) => e.id))} {...chrome}>
       <Stores appstore={state.states.appstore.snapshot} playstore={state.states.playstore.snapshot} events={state.events} onSee={seeIds} accounts={state.config?.accounts ?? []} />

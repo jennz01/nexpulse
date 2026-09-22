@@ -72,13 +72,13 @@ export class Scheduler {
     return out;
   }
 
-  /** Poll one source now, resetting its backoff. */
+  /** Poll one source now, resetting its backoff. Asked for by hand, so the source re-reads rather than trusting what it has. */
   async refresh(id: SourceId): Promise<void> {
     this.failures.set(id, 0);
     const t = this.timers.get(id);
     if (t) clearTimeout(t);
     this.timers.delete(id);
-    await this.tick(id);
+    await this.tick(id, true);
   }
 
   /**
@@ -112,14 +112,14 @@ export class Scheduler {
     if (poll && !reg.disabled) this.schedule(id, 0);
   }
 
-  async tick(id: SourceId): Promise<void> {
+  async tick(id: SourceId, force = false): Promise<void> {
     const reg = this.sources.find((r) => r.source.id === id);
     if (!reg || reg.disabled || this.inflight.has(id)) return;
     this.inflight.add(id);
     const startedAt = this.now();
     try {
       const prev = this.store.getSnapshot(id);
-      const next: unknown = await reg.source.fetch(reg.ctx);
+      const next: unknown = await reg.source.fetch(reg.ctx, prev?.data ?? null, force);
       const fetchedAt = this.now();
       this.store.saveSnapshot(id, next, fetchedAt);
       const fresh: NewEvent[] = prev?.data == null ? [] : reg.source.diff(prev.data, next);

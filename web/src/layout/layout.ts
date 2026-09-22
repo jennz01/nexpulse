@@ -27,7 +27,7 @@ export type CardPatch = Partial<Omit<CardLayout, 'id'>>;
 export interface HomeLayout { version: 1; cards: CardLayout[] }
 
 export const HOME_PANELS: PanelId[] = ['prs', 'tasks', 'issues', 'feedback', 'builds', 'releases', 'stores'];
-export const PANEL_TITLE: Record<PanelId, string> = { prs: 'Pull Requests', tasks: 'Tasks', issues: 'Issues', feedback: 'Merchant Feedback', builds: 'Builds', releases: 'Releases', stores: 'Stores' };
+export const PANEL_TITLE: Record<PanelId, string> = { prs: 'Pull Requests', tasks: 'Tasks', issues: 'Issues', feedback: 'Merchant Feedback', builds: 'Builds', releases: 'Shopping App', stores: 'AppStore/PlayStore' };
 
 const card = (id: PanelId, hidden = false, w: Width = 3): CardLayout => ({ id, w, h: 'auto', tint: 'none', hidden });
 /** Reproduces the original page: four half-width panels; Builds and Stores stay on their own pages. */

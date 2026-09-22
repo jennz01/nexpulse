@@ -15,8 +15,12 @@ export interface SourceContext<C> {
 export interface Source<S, C> {
   id: SourceId;
   defaultIntervalSec: number;
-  /** Talk to the outside world and return a normalised snapshot. Throw SourceError on failure. */
-  fetch(ctx: SourceContext<C>): Promise<S>;
+  /**
+   * Talk to the outside world and return a normalised snapshot. Throw SourceError on failure.
+   * `previous` is the last stored snapshot, for sources that can avoid re-reading what cannot have changed since.
+   * `force` marks a poll the user asked for, where any such shortcut should be given up and everything re-read.
+   */
+  fetch(ctx: SourceContext<C>, previous: S | null, force: boolean): Promise<S>;
   /** What changed and matters. Must return [] when prev is null. */
   diff(prev: S | null, next: S): NewEvent[];
   /** Optional shorter interval while something is in flight (Codemagic builds). */

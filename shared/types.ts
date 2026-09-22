@@ -108,6 +108,8 @@ export interface CodemagicApp {
   builds: Build[]; // newest first
   /** True when Codemagic still had older builds when the poll stopped paging, so the oldest run here may be cut short. */
   moreBuilds?: boolean;
+  /** When these builds were last read from Codemagic. An app with nothing in flight is not re-read every fast poll. */
+  checkedAt?: number;
 }
 export interface CodemagicSnapshot {
   apps: CodemagicApp[];
