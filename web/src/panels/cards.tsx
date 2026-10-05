@@ -59,38 +59,43 @@ export function PullRequestsCard({ ctx, chrome }: CardProps) {
 
 export function TasksCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals } = ctx;
+  const [query, setQuery] = useState('');
   const lark = state.states.lark.snapshot;
   return (
     <Panel id="tasks" title="Tasks" count={lark ? `${lark.tasks.total}${viewSuffix(state.config, 'tasks')}` : undefined} unread={0} state={state.states.lark} intervalSec={intervals.lark} now={now}
-      onRefresh={() => void refreshSource('lark')}
+      onRefresh={() => void refreshSource('lark')} search={{ value: query, onChange: setQuery, placeholder: 'Search title, RID, PIC…' }}
       headerRight={state.config?.taskFormUrl ? (
         <a className="btn primary" href={state.config.taskFormUrl} target="_blank" rel="noreferrer" title="Open the R&D Task form in Lark"><IconPlus size={12} />Create task</a>
       ) : null} {...chrome}>
-      {state.config ? <Tasks snapshot={lark} config={state.config} /> : <div className="note">Loading…</div>}
+      {state.config ? <Tasks snapshot={lark} config={state.config} query={query} /> : <div className="note">Loading…</div>}
     </Panel>
   );
 }
 
 export function IssuesCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals, unread, showUnread, seeIds } = ctx;
+  const [query, setQuery] = useState('');
   const lark = state.states.lark.snapshot;
   return (
     <Panel id="issues" title="Issues" count={lark ? `${lark.issues.groups.reduce((n, g) => n + g.records.length, 0)}${viewSuffix(state.config, 'issues')}` : undefined}
       unread={showUnread ? unread.issues.length : 0} state={state.states.lark} intervalSec={intervals.lark} now={now}
-      onRefresh={() => void refreshSource('lark')} onMarkAllSeen={() => seeIds(unread.issues.map((e) => e.id))} {...chrome}>
-      {state.config ? <Issues snapshot={lark} events={state.events} onSee={seeIds} config={state.config} /> : <div className="note">Loading…</div>}
+      onRefresh={() => void refreshSource('lark')} onMarkAllSeen={() => seeIds(unread.issues.map((e) => e.id))}
+      search={{ value: query, onChange: setQuery, placeholder: 'Search ticket, text, store, PIC…' }} {...chrome}>
+      {state.config ? <Issues snapshot={lark} events={state.events} onSee={seeIds} config={state.config} query={query} /> : <div className="note">Loading…</div>}
     </Panel>
   );
 }
 
 export function FeedbackCard({ ctx, chrome }: CardProps) {
   const { state, now, intervals, unread, showUnread, seeIds } = ctx;
+  const [query, setQuery] = useState('');
   const lark = state.states.lark.snapshot;
   return (
     <Panel id="feedback" title="Merchant Feedback" count={lark ? `newest ${lark.feedback.records.length}${viewSuffix(state.config, 'feedback')}` : undefined}
       unread={showUnread ? unread.feedback.length : 0} state={state.states.lark} intervalSec={intervals.lark} now={now}
-      onRefresh={() => void refreshSource('lark')} onMarkAllSeen={() => seeIds(unread.feedback.map((e) => e.id))} {...chrome}>
-      {state.config ? <Feedback snapshot={lark} events={state.events} onSee={seeIds} config={state.config} /> : <div className="note">Loading…</div>}
+      onRefresh={() => void refreshSource('lark')} onMarkAllSeen={() => seeIds(unread.feedback.map((e) => e.id))}
+      search={{ value: query, onChange: setQuery, placeholder: 'Search RID, text, store, PIC…' }} {...chrome}>
+      {state.config ? <Feedback snapshot={lark} events={state.events} onSee={seeIds} config={state.config} query={query} /> : <div className="note">Loading…</div>}
     </Panel>
   );
 }

@@ -7,23 +7,29 @@ import { unreadItems } from '../state';
 import { TONE_TAG, categoryClass, feedbackStatusTone, groupFeedback, shortCategory, shortDate } from './larkFormat';
 import { RecordDialog } from './RecordDialog';
 import { RecordRow } from './RecordRow';
+import { matchesWords, queryWords } from './recordSearch';
 
-interface Props { snapshot: LarkSnapshot | null; events: Event[]; onSee: (ids: number[]) => void; config: PublicConfig }
+interface Props { snapshot: LarkSnapshot | null; events: Event[]; onSee: (ids: number[]) => void; config: PublicConfig; query: string }
 
-export function Feedback({ snapshot, events, onSee, config }: Props) {
+/** What the panel search looks through. */
+const SEARCH_FIELDS = ['rid', 'text', 'store', 'reportedBy', 'category', 'pic'];
+
+export function Feedback({ snapshot, events, onSee, config, query }: Props) {
   const [open, setOpen] = useState<LarkRecord | null>(null);
   /** Groups start open; a status the user folds stays folded for this session. */
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   if (!snapshot) return <div className="note">Waiting for the first Lark poll…</div>;
   const unread = unreadItems(events, 'feedback');
   if (snapshot.feedback.records.length === 0) return <div className="note">No feedback in your view.</div>;
-  const groups = groupFeedback(snapshot.feedback.records, config.feedbackGroupOrder);
+  const words = queryWords(query);
+  const shown = groupFeedback(snapshot.feedback.records.filter((r) => matchesWords(r, words, SEARCH_FIELDS)), config.feedbackGroupOrder);
+  if (words.length && shown.length === 0) return <div className="note">No matches for “{query.trim()}”.</div>;
   const show = (r: LarkRecord, ids: number[]) => { if (ids.length) onSee(ids); setOpen(r); };
   return (
     <>
       <div className="rows" role="list">
-        {groups.map((g) => {
-          const isCollapsed = !!collapsed[g.status];
+        {shown.map((g) => {
+          const isCollapsed = !words.length && !!collapsed[g.status];
           return (
           <div key={g.status || '(none)'}>
             <button className="group" onClick={() => setCollapsed((c) => ({ ...c, [g.status]: !isCollapsed }))} aria-expanded={!isCollapsed}>

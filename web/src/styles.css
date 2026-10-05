@@ -93,6 +93,8 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .btn:disabled { opacity: 0.5; cursor: default; }
 a.btn:hover { text-decoration: none; }
 a.btn.primary:hover { color: #fff; }
+.panel-search { display: flex; align-items: center; gap: 6px; padding: 8px 12px 8px 16px; border-bottom: 1px solid var(--border2); }
+.panel-search .search { height: 30px; flex: 1 1 auto; min-width: 0; }
 .stale { display: flex; gap: 8px; align-items: center; padding: 6px 16px; font-size: 0.75rem; color: var(--amber); background: var(--amber-soft); border-bottom: 1px solid var(--border2); }
 .stale.red { color: var(--red); background: var(--red-soft); }
 .note { padding: 16px; font-size: 0.875rem; color: var(--muted); }

@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import type { CSSProperties, HTMLAttributes, ReactNode, Ref } from 'react';
 import type { PanelId, SourceState } from '../../../shared/types';
 import { freshness } from '../freshness';
-import { IconExternal, IconRefresh } from '../icons';
+import { IconClose, IconExternal, IconRefresh, IconSearch } from '../icons';
 import type { Tint } from '../layout/layout';
 import { formatClock } from '../time';
 
@@ -18,6 +19,8 @@ export interface PanelProps {
   onMarkAllSeen?: () => void;
   openUrl?: string;
   headerRight?: ReactNode;
+  /** A local filter over what the panel already holds: a header toggle opens a search row under the header. */
+  search?: { value: string; onChange: (value: string) => void; placeholder?: string };
   children: ReactNode;
   /** Colour preset from the Home layout; `data-tint` lets styles.css pick the header band and body wash. */
   tint?: Tint;
@@ -43,6 +46,9 @@ export function Panel(props: PanelProps) {
   const errored = states.find((s) => s.error);
   const fresh = states.map((s) => freshness(s, props.intervalSec, props.now)).sort((a, b) => rank(b.tone) - rank(a.tone))[0]!;
   const className = ['panel', props.fill ? 'fill' : '', props.className ?? ''].filter(Boolean).join(' ');
+  const [searching, setSearching] = useState(false);
+  // Closing the row also drops the query, so a hidden filter never leaves the list mysteriously short.
+  const closeSearch = () => { setSearching(false); props.search?.onChange(''); };
   return (
     <section className={className} id={props.id} aria-labelledby={`${props.id}-title`} data-tint={props.tint && props.tint !== 'none' ? props.tint : undefined} style={props.style} {...props.sectionProps}>
       <div className="panel-inner" ref={props.innerRef}>
@@ -59,6 +65,10 @@ export function Panel(props: PanelProps) {
             {props.tools ?? (
               <>
                 {props.headerRight}
+                {props.search && (
+                  <button className={`iconbtn sm ${searching ? 'on' : ''}`} title="Search this panel" aria-expanded={searching}
+                    onClick={() => (searching ? closeSearch() : setSearching(true))}><IconSearch size={14} /></button>
+                )}
                 <span className={`meta mono ${fresh.tone === 'amber' ? 'amber' : ''}`} style={fresh.tone === 'amber' ? { color: 'var(--amber)' } : undefined}>{fresh.label}</span>
                 {props.onRefresh && !disabled && (
                   <button className="iconbtn sm" title="Refresh" onClick={props.onRefresh}><IconRefresh size={14} /></button>
@@ -70,6 +80,14 @@ export function Panel(props: PanelProps) {
             )}
           </div>
         </div>
+        {props.search && searching && !props.tools && (
+          <div className="panel-search">
+            <input className="search" type="text" autoFocus placeholder={props.search.placeholder ?? 'Search…'} value={props.search.value}
+              onChange={(e) => props.search?.onChange(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') closeSearch(); }}
+              aria-label={`Search ${props.title}`} spellCheck={false} />
+            <button className="iconbtn sm" title="Clear and close (Esc)" onClick={closeSearch}><IconClose size={14} /></button>
+          </div>
+        )}
         {errored && !disabled && (
           <div className={`stale ${errored.fetchedAt == null ? 'red' : ''}`}>
             {errored.fetchedAt == null ? 'No data yet' : `Stale since ${formatClock(errored.fetchedAt)}`} · {errored.error}

@@ -8,8 +8,12 @@ import { unreadItems } from '../state';
 import { ageClass, ageLabel, priorityClass, shortDateTime } from './larkFormat';
 import { RecordDialog } from './RecordDialog';
 import { RecordRow } from './RecordRow';
+import { matchesWords, queryWords } from './recordSearch';
 
-interface Props { snapshot: LarkSnapshot | null; events: Event[]; onSee: (ids: number[]) => void; config: PublicConfig }
+interface Props { snapshot: LarkSnapshot | null; events: Event[]; onSee: (ids: number[]) => void; config: PublicConfig; query: string }
+
+/** What the panel search looks through. */
+const SEARCH_FIELDS = ['ticketId', 'description', 'store', 'reportedBy', 'taggedPic', 'modulePic', 'priority'];
 
 /** Days since the report. "Hours Since" is Lark's formula off the reported date, so it is preferred; the date column is the fallback when the formula is absent. */
 const ageDays = (r: LarkRecord): number => {
@@ -21,7 +25,7 @@ const ageDays = (r: LarkRecord): number => {
 /** Newest report on top within each status group. */
 const byNewest = (a: LarkRecord, b: LarkRecord) => ageDays(a) - ageDays(b);
 
-export function Issues({ snapshot, events, onSee, config }: Props) {
+export function Issues({ snapshot, events, onSee, config, query }: Props) {
   const [open, setOpen] = useState<LarkRecord | null>(null);
   /** Per-group overrides; a status the user has not touched follows the default below. */
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
@@ -33,11 +37,15 @@ export function Issues({ snapshot, events, onSee, config }: Props) {
   const isDone = (status: string) => /resolv|close|done|complete|cancel|reject|kiv/i.test(status);
   const tone = (status: string) => (status === first ? 'red' : isDone(status) ? 'grey' : 'amber');
   const show = (r: LarkRecord, ids: number[]) => { if (ids.length) onSee(ids); setOpen(r); };
+  const words = queryWords(query);
+  const shown = snapshot.issues.groups.map((g) => ({ ...g, records: g.records.filter((r) => matchesWords(r, words, SEARCH_FIELDS)) })).filter((g) => !words.length || g.records.length > 0);
+  if (words.length && shown.length === 0) return <div className="note">No matches for “{query.trim()}”.</div>;
   return (
     <>
       <div className="rows" role="list">
-        {snapshot.issues.groups.map((g) => {
-          const isCollapsed = toggled[g.status] ?? isDone(g.status);
+        {shown.map((g) => {
+          // A search opens every group that has a hit; the folds come back once the query is cleared.
+          const isCollapsed = !words.length && (toggled[g.status] ?? isDone(g.status));
           return (
           <div key={g.status}>
             <button className="group" onClick={() => setToggled((c) => ({ ...c, [g.status]: !isCollapsed }))} aria-expanded={!isCollapsed}>

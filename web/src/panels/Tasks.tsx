@@ -4,8 +4,12 @@ import { attachmentUrl } from '../api';
 import { IconChevronDown, IconChevronRight } from '../icons';
 import { dropMidnight, priorityClass, progressPercent, typeClass } from './larkFormat';
 import { RecordDialog } from './RecordDialog';
+import { matchesWords, queryWords } from './recordSearch';
 
-interface Props { snapshot: LarkSnapshot | null; config: PublicConfig }
+interface Props { snapshot: LarkSnapshot | null; config: PublicConfig; query: string }
+
+/** What the panel search looks through. */
+const SEARCH_FIELDS = ['title', 'rid', 'pic', 'type', 'category', 'description'];
 
 function Others({ pic }: { pic: string }) {
   const names = pic.split(',').map((s) => s.trim()).filter(Boolean);
@@ -26,17 +30,20 @@ function TaskRow({ r, onOpen }: { r: LarkRecord; onOpen: () => void }) {
   );
 }
 
-export function Tasks({ snapshot, config }: Props) {
+export function Tasks({ snapshot, config, query }: Props) {
   const [open, setOpen] = useState<LarkRecord | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => Object.fromEntries(config.collapsedStatuses.map((s) => [s, true])));
   if (!snapshot) return <div className="note">Waiting for the first Lark poll…</div>;
   if (snapshot.tasks.groups.length === 0) return <div className="note">No tasks in your view.</div>;
+  const words = queryWords(query);
+  const shown = snapshot.tasks.groups.map((g) => ({ ...g, records: g.records.filter((r) => matchesWords(r, words, SEARCH_FIELDS)) })).filter((g) => !words.length || g.records.length > 0);
+  if (words.length && shown.length === 0) return <div className="note">No matches for “{query.trim()}”.</div>;
   const dot = (status: string) => (status === config.pendingLaunchStatus ? 'amber' : config.collapsedStatuses.includes(status) ? 'green' : 'blue');
   return (
     <>
       <div className="rows" role="list">
-        {snapshot.tasks.groups.map((g) => {
-          const isCollapsed = !!collapsed[g.status];
+        {shown.map((g) => {
+          const isCollapsed = !words.length && !!collapsed[g.status];
           return (
             <div key={g.status}>
               <button className="group" onClick={() => setCollapsed((c) => ({ ...c, [g.status]: !isCollapsed }))} aria-expanded={!isCollapsed}>

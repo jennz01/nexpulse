@@ -22,7 +22,7 @@ const events: Event[] = [{ id: 7, source: 'lark', kind: 'issue.opened', priority
 
 test('sorts newest first, highlights the unread row, and a click marks it seen and opens the detail dialog', () => {
   const onSee = mock(() => {});
-  render(<Issues snapshot={snapshot} events={events} onSee={onSee} config={config} />);
+  render(<Issues snapshot={snapshot} events={events} onSee={onSee} config={config} query="" />);
   const rows = screen.getAllByRole('listitem');
   expect(rows[0]?.textContent).toContain('#G001');
   expect(rows[0]?.className).toContain('new');
@@ -35,6 +35,6 @@ test('sorts newest first, highlights the unread row, and a click marks it seen a
 });
 
 test('shows the waiting note before the first poll', () => {
-  render(<Issues snapshot={null} events={[]} onSee={() => {}} config={config} />);
+  render(<Issues snapshot={null} events={[]} onSee={() => {}} config={config} query="" />);
   expect(screen.getByText(/Waiting for the first Lark poll/)).toBeTruthy();
 });
