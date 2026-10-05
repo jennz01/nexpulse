@@ -89,8 +89,9 @@ export function Panel(props: PanelProps) {
           </div>
         )}
         {errored && !disabled && (
-          <div className={`stale ${errored.fetchedAt == null ? 'red' : ''}`}>
-            {errored.fetchedAt == null ? 'No data yet' : `Stale since ${formatClock(errored.fetchedAt)}`} · {errored.error}
+          <div className={`stale ${errored.fetchedAt == null ? 'red' : ''}`} title={errored.error ?? undefined}>
+            {/* Clamped: a lark-cli failure quotes the whole request URL, which would otherwise fill the card. The title keeps the full text. */}
+            <span className="stale-msg">{errored.fetchedAt == null ? 'No data yet' : `Stale since ${formatClock(errored.fetchedAt)}`} · {errored.error}</span>
           </div>
         )}
         <div className="panel-body">{disabled ? <div className="note">Off: {disabled}</div> : props.children}</div>
