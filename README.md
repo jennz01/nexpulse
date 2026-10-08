@@ -76,18 +76,19 @@ App Store Connect → Users and Access → Integrations → App Store Connect AP
 ### Google Play (per Play account)
 
 1. Google Cloud Console → IAM & Admin → Service Accounts → Create → Keys → Add key (JSON). Save it as `config/secrets/play-<account>.json`.
-2. Play Console → Users and permissions → Invite new users → the service-account email → grant "View app information and download bulk reports" on the apps to watch.
-3. Add `play` to the same account entry:
+2. In the same Cloud project, enable the **Google Play Android Developer API** and the **Google Play Developer Reporting API** (the second one lists the apps).
+3. Play Console → Users and permissions → Invite new users → the service-account email → grant "View app information and download bulk reports" on the apps to watch.
+4. Add `play` to the same account entry (or use Settings → Store accounts):
 
 ```json
 "play": {
   "serviceAccountFile": "secrets/play-<account>.json",
-  "developerId": "<the number in the Play Console URL>",
-  "apps": [ { "packageName": "com.example.app", "name": "Same name as in App Store Connect", "consoleUrl": "https://play.google.com/console/u/0/developers/<developerId>/app/<consoleAppId>/tracks/production" } ]
+  "developerId": "<optional: the number in the Play Console URL>",
+  "apps": [ { "packageName": "com.example.old", "hidden": true }, { "packageName": "com.example.app", "name": "Name as in App Store Connect" } ]
 }
 ```
 
-The Play `name` must equal the App Store Connect app name so both columns land on the same row. `consoleUrl` is optional; without it the cell links to the account's app list.
+The apps are found from the service account on every poll, so `apps` holds only exceptions: `hidden` drops an app, `name` renames it. An Android app shares a row with the iOS app of the same name or, failing that, the same bundle ID. `developerId` only makes the links open that developer account in Play Console.
 
 ## Running
 

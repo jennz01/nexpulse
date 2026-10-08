@@ -1,7 +1,7 @@
 import { readText } from '../config';
 import { resolve } from 'node:path';
 import { humanState } from '../../shared/status';
-import type { NewEvent, PlayApp, PlayRelease, PlaySnapshot } from '../../shared/types';
+import type { NewEvent, PlayApp, PlayFoundApp, PlayRelease, PlaySnapshot } from '../../shared/types';
 import type { PlayAppConfig, StoreAccountConfig } from '../config';
 import { importPrivateKey, signJwt } from '../jwt';
 import { SourceError } from './types';
@@ -9,6 +9,7 @@ import type { Source, SourceContext } from './types';
 
 export interface PlayAccount {
   name: string;
+  /** '' when not set; only used to open the right developer account in Play Console. */
   developerId: string;
   clientEmail: string;
   privateKeyPem: string;
@@ -20,7 +21,9 @@ export interface PlayConfig {
 }
 
 export const PLAY_API = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications';
-export const PLAY_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
+/** The Android Publisher API has no "list my apps"; the Reporting API's apps:search does, with the same key. */
+export const REPORTING_API = 'https://playdeveloperreporting.googleapis.com/v1beta1';
+export const PLAY_SCOPE = 'https://www.googleapis.com/auth/androidpublisher https://www.googleapis.com/auth/playdeveloperreporting';
 
 export class PlayTokenCache {
   private cache = new Map<string, { token: string; expMs: number }>();
@@ -75,8 +78,39 @@ export async function readReleases(fetchImpl: typeof fetch, token: string, packa
   }
 }
 
-export const playConsoleUrl = (acc: PlayAccount, app: PlayAppConfig): string =>
-  app.consoleUrl ?? `https://play.google.com/console/u/0/developers/${acc.developerId}/app-list`;
+/** Every app the service account can see, sorted by title. */
+export async function searchApps(fetchImpl: typeof fetch, token: string, accountName: string): Promise<PlayFoundApp[]> {
+  const found: PlayFoundApp[] = [];
+  let pageToken = '';
+  do {
+    const url = `${REPORTING_API}/apps:search?pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
+    const res = await fetchImpl(url, { headers: { authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 300);
+      if (res.status === 403 && /SERVICE_DISABLED|has not been used|is disabled/i.test(body)) {
+        throw new SourceError(`Google Play apps:search (${accountName}): HTTP 403 ${body}`, `Enable the Google Play Developer Reporting API in the Cloud project of the ${accountName} service account`);
+      }
+      if (res.status === 401 || res.status === 403) throw new SourceError(`Google Play apps:search: HTTP ${res.status}`, `Play service account for account ${accountName} rejected or not invited`);
+      throw new SourceError(`Google Play apps:search (${accountName}): HTTP ${res.status} ${body}`);
+    }
+    const json = (await res.json()) as { apps?: Array<{ packageName?: string; displayName?: string }>; nextPageToken?: string };
+    for (const a of json.apps ?? []) if (a.packageName) found.push({ packageName: a.packageName, displayName: a.displayName || a.packageName });
+    pageToken = json.nextPageToken ?? '';
+  } while (pageToken);
+  return found.sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+/** The account's app list in Play Console; Google's APIs do not expose the console's per-app ids. */
+export const playConsoleUrl = (acc: PlayAccount): string =>
+  acc.developerId ? `https://play.google.com/console/u/0/developers/${acc.developerId}/app-list` : 'https://play.google.com/console/';
+
+/** Found apps minus the hidden ones, under their overridden names. */
+export function visibleApps(found: PlayFoundApp[], overrides: PlayAppConfig[]): { packageName: string; name: string }[] {
+  const byPackage = new Map(overrides.map((o) => [o.packageName, o]));
+  return found
+    .filter((f) => !byPackage.get(f.packageName)?.hidden)
+    .map((f) => ({ packageName: f.packageName, name: byPackage.get(f.packageName)?.name ?? f.displayName }));
+}
 
 const tokens = new PlayTokenCache();
 
@@ -84,9 +118,10 @@ export async function fetchPlay(ctx: SourceContext<PlayConfig>): Promise<PlaySna
   const apps: PlayApp[] = [];
   for (const acc of ctx.config.accounts) {
     const token = await tokens.token(acc, ctx.fetch, ctx.now());
-    for (const app of acc.apps) {
-      const releases = await readReleases(ctx.fetch, token, app.packageName, acc.name);
-      apps.push({ account: acc.name, packageName: app.packageName, name: app.name, releases, url: playConsoleUrl(acc, app) });
+    for (const app of visibleApps(await searchApps(ctx.fetch, token, acc.name), acc.apps)) {
+      // Only production matters here; test tracks (internal, alpha, beta, custom) would just add noise and events.
+      const releases = (await readReleases(ctx.fetch, token, app.packageName, acc.name)).filter((r) => r.track === 'production');
+      apps.push({ account: acc.name, packageName: app.packageName, name: app.name, releases, url: playConsoleUrl(acc) });
     }
   }
   return { apps };
@@ -96,14 +131,20 @@ const releaseKey = (r: PlayRelease) => `${r.name ?? ''}|${r.versionCodes.join(',
 
 export function diffPlay(prev: PlaySnapshot | null, next: PlaySnapshot): NewEvent[] {
   if (!prev) return [];
-  const before = new Map<string, PlayRelease>();
-  for (const a of prev.apps) for (const r of a.releases) before.set(`${a.account}/${a.packageName}/${r.track}`, r);
+  // A track can hold several releases at once (live + staged rollout), so compare against all of them.
+  const before = new Map<string, Set<string>>();
+  for (const a of prev.apps) {
+    for (const r of a.releases) {
+      const id = `${a.account}/${a.packageName}/${r.track}`;
+      before.set(id, (before.get(id) ?? new Set()).add(releaseKey(r)));
+    }
+  }
   const events: NewEvent[] = [];
   for (const app of next.apps) {
     for (const r of app.releases) {
       const id = `${app.account}/${app.packageName}/${r.track}`;
       const p = before.get(id);
-      if (!p || releaseKey(p) === releaseKey(r)) continue;
+      if (!p || p.has(releaseKey(r))) continue;
       const pct = r.userFraction != null ? ` ${Math.round(r.userFraction * 100)}%` : '';
       events.push({
         source: 'playstore',
@@ -135,6 +176,6 @@ export function loadPlayAccounts(
     .map((a) => {
       const sa = JSON.parse(readFile(resolve(configDir, a.play.serviceAccountFile))) as { client_email?: string; private_key?: string; token_uri?: string };
       if (!sa.client_email || !sa.private_key) throw new Error(`service account file for ${a.name} lacks client_email/private_key`);
-      return { name: a.name, developerId: a.play.developerId, clientEmail: sa.client_email, privateKeyPem: sa.private_key, tokenUri: sa.token_uri ?? 'https://oauth2.googleapis.com/token', apps: a.play.apps };
+      return { name: a.name, developerId: a.play.developerId ?? '', clientEmail: sa.client_email, privateKeyPem: sa.private_key, tokenUri: sa.token_uri ?? 'https://oauth2.googleapis.com/token', apps: a.play.apps };
     });
 }

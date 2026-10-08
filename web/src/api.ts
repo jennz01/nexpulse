@@ -1,4 +1,4 @@
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
+import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, PlayFoundApp, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
 
 const POST_HEADERS = { 'x-requested-with': 'dashboard' };
 
@@ -63,6 +63,10 @@ export async function removeStoreAccount(name: string): Promise<StoreAccountView
 
 export async function testStoreAccount(input: StoreAccountInput): Promise<StoreTestResult> {
   return json<StoreTestResult>(await fetch('/api/stores/test', { method: 'POST', headers: JSON_POST, body: JSON.stringify(input) }));
+}
+
+export async function findPlayApps(input: StoreAccountInput): Promise<PlayFoundApp[]> {
+  return json<PlayFoundApp[]>(await fetch('/api/stores/play-apps', { method: 'POST', headers: JSON_POST, body: JSON.stringify(input) }));
 }
 
 // ---- gh / lark-cli sessions (Settings → Connections, banner) ----

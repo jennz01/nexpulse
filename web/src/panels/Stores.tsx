@@ -5,15 +5,24 @@ import { openItem } from './open';
 
 export interface StoreRow { account: string; name: string; ios: AppStoreApp | null; android: PlayApp | null }
 
+/**
+ * The iOS app a Play app shares a row with: same name (a name override in Settings lands here), else the bundle id
+ * equal to the package name. Callers pass only the iOS apps of the same account.
+ */
+export function iosPartner<T extends { name: string; bundleId: string }>(play: { packageName: string; name: string }, ios: T[]): T | null {
+  return ios.find((a) => a.name === play.name) ?? ios.find((a) => a.bundleId === play.packageName) ?? null;
+}
+
 export function joinStoreApps(appstore: AppStoreSnapshot | null, playstore: PlaySnapshot | null, accountOrder: string[]): StoreRow[] {
   const rows = new Map<string, StoreRow>();
   const key = (account: string, name: string) => `${account}::${name}`;
   for (const a of appstore?.apps ?? []) rows.set(key(a.account, a.name), { account: a.account, name: a.name, ios: a, android: null });
   for (const p of playstore?.apps ?? []) {
-    const k = key(p.account, p.name);
-    const existing = rows.get(k);
+    const unpaired = (appstore?.apps ?? []).filter((a) => a.account === p.account && !rows.get(key(a.account, a.name))?.android);
+    const partner = iosPartner(p, unpaired);
+    const existing = partner ? rows.get(key(partner.account, partner.name)) : rows.get(key(p.account, p.name));
     if (existing) existing.android = p;
-    else rows.set(k, { account: p.account, name: p.name, ios: null, android: p });
+    else rows.set(key(p.account, p.name), { account: p.account, name: p.name, ios: null, android: p });
   }
   const rank = (account: string) => { const i = accountOrder.indexOf(account); return i === -1 ? accountOrder.length : i; };
   return [...rows.values()].sort((a, b) => rank(a.account) - rank(b.account) || a.account.localeCompare(b.account));
@@ -50,8 +59,8 @@ export function Stores({ appstore, playstore, events, onSee, accounts }: Props) 
         const header = r.account !== lastAccount ? <div className="group" key={`g-${r.account}`}>{r.account.toUpperCase()}</div> : null;
         lastAccount = r.account;
         const ids = idsFor(r);
-        const production = r.android?.releases.find((rel) => rel.track === 'production') ?? null;
-        const others = r.android?.releases.filter((rel) => rel !== production) ?? [];
+        // The source keeps production only; it can hold two releases at once (live + staged rollout).
+        const production = r.android?.releases.filter((rel) => rel.track === 'production') ?? [];
         return (
           <div key={`${r.account}/${r.name}`}>
             {header}
@@ -75,11 +84,10 @@ export function Stores({ appstore, playstore, events, onSee, accounts }: Props) 
               </div>
               <div className="cell">
                 {!r.android && <span className="sub">not on this account</span>}
-                {production && <span className="ver"><span className="mono">{production.name ?? ''} ({production.versionCodes.join(', ')})</span><span className={`tag ${playStatusClass(production.status)}`}>{production.status === 'inProgress' ? `${Math.round((production.userFraction ?? 0) * 100)}% rollout` : humanState(production.status)}</span></span>}
-                {others.map((rel) => (
-                  <span className="ver" key={rel.track}><span className="sub">{rel.track}</span><span className="mono">{rel.name ?? ''} ({rel.versionCodes.join(', ')})</span><span className={`tag ${playStatusClass(rel.status)}`}>{rel.status === 'inProgress' ? `${Math.round((rel.userFraction ?? 0) * 100)}% rollout` : humanState(rel.status)}</span></span>
+                {production.map((rel, i) => (
+                  <span className="ver" key={i}><span className="mono">{rel.name ?? ''} ({rel.versionCodes.join(', ')})</span><span className={`tag ${playStatusClass(rel.status)}`}>{rel.status === 'inProgress' ? `${Math.round((rel.userFraction ?? 0) * 100)}% rollout` : humanState(rel.status)}</span></span>
                 ))}
-                {r.android && r.android.releases.length === 0 && <span className="sub">no releases</span>}
+                {r.android && production.length === 0 && <span className="sub">not in production yet</span>}
                 {r.android && <a className="sub" href={r.android.url} target="_blank" rel="noreferrer" onClick={(e) => { e.preventDefault(); openItem(r.android!.url, ids, onSee); }}>Play Console</a>}
               </div>
             </div>

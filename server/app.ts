@@ -359,6 +359,17 @@ export function createApp(deps: AppDeps): Hono {
     }
   });
 
+  app.post('/api/stores/play-apps', async (c) => {
+    if (!deps.accounts) return c.json({ error: 'account management is not available in this process' }, 501);
+    const body = (await c.req.json().catch(() => null)) as StoreAccountInput | null;
+    if (!body || typeof body !== 'object') return c.json({ error: 'JSON body required' }, 400);
+    try {
+      return c.json(await deps.accounts.playApps(body));
+    } catch (err) {
+      return accountError(c, err);
+    }
+  });
+
   if (deps.devEmit) {
     app.post('/api/dev/emit', async (c) => {
       const body = (await c.req.json().catch(() => null)) as Partial<NewEvent> | null;

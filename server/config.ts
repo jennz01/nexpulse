@@ -57,8 +57,9 @@ const FeedbackTable = z.object({
 });
 
 const AppStoreAccount = z.object({ issuerId: id, keyId: id, keyFile: id });
-const PlayAppSchema = z.object({ packageName: id, name: id, consoleUrl: z.string().optional() });
-const PlayAccount = z.object({ serviceAccountFile: id, developerId: id, apps: z.array(PlayAppSchema) });
+/** Per-app override; the apps themselves are discovered from the service account (see PlayAppOverride). */
+const PlayAppSchema = z.object({ packageName: id, name: z.string().min(1).optional(), hidden: z.boolean().optional() });
+const PlayAccount = z.object({ serviceAccountFile: id, developerId: z.string().optional(), apps: z.array(PlayAppSchema).default([]) });
 const StoreAccount = z.object({ name: id, appstore: AppStoreAccount.optional(), play: PlayAccount.optional() });
 
 export const ConfigSchema = z.object({

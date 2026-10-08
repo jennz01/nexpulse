@@ -36,19 +36,20 @@ describe('PlayTokenCache', () => {
     expect(await cache.token(acc, f, 1_000_000_000_000)).toBe('ya29.x');
     expect(posted!.get('grant_type')).toBe('urn:ietf:params:oauth:grant-type:jwt-bearer');
     const claims = JSON.parse(atob(posted!.get('assertion')!.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/')));
-    expect(claims).toMatchObject({ iss: acc.clientEmail, scope: 'https://www.googleapis.com/auth/androidpublisher', aud: acc.tokenUri });
+    expect(claims).toMatchObject({ iss: acc.clientEmail, scope: 'https://www.googleapis.com/auth/androidpublisher https://www.googleapis.com/auth/playdeveloperreporting', aud: acc.tokenUri });
     await cache.token(acc, f, 1_000_000_000_000 + 1000);
     expect(calls).toBe(1);
   });
 });
 
 describe('fetchPlay', () => {
-  test('creates an edit, reads tracks, deletes the edit', async () => {
-    const acc = await testAccount();
+  test('finds the apps, creates an edit, reads tracks, deletes the edit', async () => {
+    const acc = { ...(await testAccount()), apps: [{ packageName: 'com.x.hidden', hidden: true }] };
     const seen: string[] = [];
     const f = fakeFetch((url, init) => {
       seen.push(`${init?.method ?? 'GET'} ${url}`);
       if (url.endsWith('/token')) return Response.json({ access_token: 't', expires_in: 3600 });
+      if (url.includes('/apps:search')) return Response.json({ apps: [{ packageName: 'com.x.app', displayName: 'SGPOS' }, { packageName: 'com.x.hidden', displayName: 'Old' }] });
       if (url.endsWith('/edits') && init?.method === 'POST') return Response.json({ id: 'edit1' });
       if (url.endsWith('/edits/edit1/tracks')) return Response.json(tracks);
       if (url.endsWith('/edits/edit1') && init?.method === 'DELETE') return new Response(null, { status: 204 });
@@ -58,7 +59,7 @@ describe('fetchPlay', () => {
     const snap = await fetchPlay(ctx);
     expect(snap.apps).toHaveLength(1);
     expect(snap.apps[0]).toMatchObject({ account: 'Acc', packageName: 'com.x.app', name: 'SGPOS', url: 'https://play.google.com/console/u/0/developers/999/app-list' });
-    expect(snap.apps[0]?.releases.map((r) => r.track)).toEqual(['production', 'beta']);
+    expect(snap.apps[0]?.releases.map((r) => r.track)).toEqual(['production']);
     expect(seen.some((s) => s.startsWith('DELETE ') && s.endsWith('/edits/edit1'))).toBe(true);
   });
 
@@ -70,10 +71,9 @@ describe('fetchPlay', () => {
   });
 });
 
-test('playConsoleUrl prefers the configured url', () => {
-  const acc = { developerId: '999' } as PlayAccount;
-  expect(playConsoleUrl(acc, { packageName: 'p', name: 'n', consoleUrl: 'https://c' })).toBe('https://c');
-  expect(playConsoleUrl(acc, { packageName: 'p', name: 'n' })).toBe('https://play.google.com/console/u/0/developers/999/app-list');
+test('playConsoleUrl opens the developer account when its id is known', () => {
+  expect(playConsoleUrl({ developerId: '999' } as PlayAccount)).toBe('https://play.google.com/console/u/0/developers/999/app-list');
+  expect(playConsoleUrl({ developerId: '' } as PlayAccount)).toBe('https://play.google.com/console/');
 });
 
 const app = (releases: PlayApp['releases']): PlayApp => ({ account: 'Acc', packageName: 'com.x.app', name: 'SGPOS', releases, url: 'u' });

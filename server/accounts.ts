@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { StoreAccountInput, StoreAccountView, StorePlayAppInput, StoreTestResult } from '../shared/types';
+import type { PlayAppOverride, PlayFoundApp, StoreAccountInput, StoreAccountView, StoreTestResult } from '../shared/types';
 import { ConfigSchema, loadConfig, readText } from './config';
 import type { LoadedConfig, StoreAccountConfig } from './config';
 import { AscTokenCache, ascJson, parseAscApps } from './sources/appstore';
 import type { AppStoreAccount } from './sources/appstore';
-import { PlayTokenCache, readReleases } from './sources/playstore';
+import { PlayTokenCache, readReleases, searchApps, visibleApps } from './sources/playstore';
 import type { PlayAccount } from './sources/playstore';
 import { describeError } from './sources/types';
 
@@ -51,17 +51,18 @@ export function validateServiceAccount(text: string): ServiceAccountJson {
   return { client_email: json.client_email, private_key: json.private_key, token_uri: typeof json.token_uri === 'string' ? json.token_uri : GOOGLE_TOKEN_URI };
 }
 
-function cleanApps(apps: unknown): StorePlayAppInput[] {
-  if (!Array.isArray(apps) || apps.length === 0) throw new AccountInputError('Add at least one Play app (package name and display name).');
-  return apps.map((a) => {
+/** Keep only overrides that change something: a new name, or hidden. */
+function cleanOverrides(apps: unknown): PlayAppOverride[] {
+  if (apps == null) return [];
+  if (!Array.isArray(apps)) throw new AccountInputError('Play apps must be a list.');
+  return apps.flatMap((a) => {
     const o = (a ?? {}) as Record<string, unknown>;
     const packageName = String(o.packageName ?? '').trim();
-    const name = String(o.name ?? '').trim();
-    const consoleUrl = typeof o.consoleUrl === 'string' && o.consoleUrl.trim() ? o.consoleUrl.trim() : undefined;
+    const name = String(o.name ?? '').trim().slice(0, 100);
+    const hidden = o.hidden === true;
     if (!PACKAGE_NAME.test(packageName)) throw new AccountInputError(`"${packageName || '(empty)'}" is not a valid package name.`);
-    if (!name) throw new AccountInputError(`Display name is missing for ${packageName}.`);
-    if (consoleUrl && !/^https:\/\/play\.google\.com\//.test(consoleUrl)) throw new AccountInputError(`Console URL for ${packageName} must start with https://play.google.com/.`);
-    return consoleUrl ? { packageName, name, consoleUrl } : { packageName, name };
+    if (!name && !hidden) return [];
+    return [{ packageName, ...(name ? { name } : {}), ...(hidden ? { hidden } : {}) }];
   });
 }
 
@@ -122,8 +123,8 @@ export class StoreAccounts {
 
     if (input.play) {
       const developerId = String(input.play.developerId ?? '').trim();
-      if (!DEVELOPER_ID.test(developerId)) throw new AccountInputError('Developer ID must be the long number from the Play Console URL.');
-      const apps = cleanApps(input.play.apps);
+      if (developerId && !DEVELOPER_ID.test(developerId)) throw new AccountInputError('Developer ID must be the long number from the Play Console URL, or left empty.');
+      const apps = cleanOverrides(input.play.apps);
       const keep = existing?.play?.serviceAccountFile;
       let serviceAccountFile: string;
       if (typeof input.play.serviceAccountJson === 'string' && input.play.serviceAccountJson.trim()) {
@@ -135,7 +136,7 @@ export class StoreAccounts {
       } else {
         throw new AccountInputError('Choose the service account JSON file for Google Play.');
       }
-      entry.play = { developerId, serviceAccountFile, apps };
+      entry.play = { ...(developerId ? { developerId } : {}), serviceAccountFile, apps };
     }
 
     const next = existing ? accounts.map((a) => (a === existing ? entry : a)) : [...accounts, entry];
@@ -156,10 +157,19 @@ export class StoreAccounts {
     return this.list();
   }
 
-  /** Try the credentials without saving: App Store app list, and each Play package's tracks. */
+  /** The Play apps the form's service account can see (a newly chosen file, or the stored one when editing). */
+  async playApps(input: StoreAccountInput): Promise<PlayFoundApp[]> {
+    if (!input.play) throw new AccountInputError('Switch on Google Play first.');
+    const fetchImpl = this.deps.fetchImpl ?? fetch;
+    const name = String(input.name ?? '').trim() || 'new account';
+    const token = await new PlayTokenCache().token(this.playAccountFor(input, name), fetchImpl);
+    return searchApps(fetchImpl, token, name);
+  }
+
+  /** Try the credentials without saving: App Store app list, and the tracks of each Play app the key can see. */
   async test(input: StoreAccountInput): Promise<StoreTestResult> {
     const fetchImpl = this.deps.fetchImpl ?? fetch;
-    const existing = input.originalName ? this.current().find((a) => a.name === input.originalName) ?? null : null;
+    const existing = this.existingFor(input);
     const name = String(input.name ?? '').trim() || 'new account';
     const result: StoreTestResult = { appstore: null, play: null };
 
@@ -181,14 +191,8 @@ export class StoreAccounts {
     if (input.play) {
       const perApp: NonNullable<StoreTestResult['play']>['apps'] = [];
       try {
-        const text = input.play.serviceAccountJson?.trim()
-          ? input.play.serviceAccountJson
-          : existing?.play ? readText(resolve(this.configDir, existing.play.serviceAccountFile)) : null;
-        if (!text) throw new AccountInputError('Choose the service account JSON first.');
-        const sa = validateServiceAccount(text);
-        const acc: PlayAccount = { name, developerId: String(input.play.developerId ?? ''), clientEmail: sa.client_email, privateKeyPem: sa.private_key, tokenUri: sa.token_uri, apps: [] };
-        const token = await new PlayTokenCache().token(acc, fetchImpl);
-        for (const app of cleanApps(input.play.apps)) {
+        const token = await new PlayTokenCache().token(this.playAccountFor(input, name), fetchImpl);
+        for (const app of visibleApps(await searchApps(fetchImpl, token, name), cleanOverrides(input.play.apps))) {
           try {
             perApp.push({ packageName: app.packageName, ok: true, releases: (await readReleases(fetchImpl, token, app.packageName, name)).length, error: null });
           } catch (err) {
@@ -204,6 +208,21 @@ export class StoreAccounts {
   }
 
   // ---- internals ----
+
+  private existingFor(input: StoreAccountInput): StoreAccountConfig | null {
+    return input.originalName ? this.current().find((a) => a.name === input.originalName) ?? null : null;
+  }
+
+  /** Play credentials from the form: the newly chosen JSON, else the stored file of the account being edited. */
+  private playAccountFor(input: StoreAccountInput, name: string): PlayAccount {
+    const existing = this.existingFor(input);
+    const text = input.play?.serviceAccountJson?.trim()
+      ? input.play.serviceAccountJson
+      : existing?.play ? readText(resolve(this.configDir, existing.play.serviceAccountFile)) : null;
+    if (!text) throw new AccountInputError('Choose the service account JSON first.');
+    const sa = validateServiceAccount(text);
+    return { name, developerId: String(input.play?.developerId ?? ''), clientEmail: sa.client_email, privateKeyPem: sa.private_key, tokenUri: sa.token_uri, apps: [] };
+  }
 
   private readRaw(): Record<string, unknown> {
     return JSON.parse(readText(this.configPath)) as Record<string, unknown>;
@@ -226,7 +245,7 @@ export class StoreAccounts {
     return {
       name: a.name,
       appstore: a.appstore ? { issuerId: a.appstore.issuerId, keyId: a.appstore.keyId, keyFile: a.appstore.keyFile, keyPresent: existsSync(resolve(this.configDir, a.appstore.keyFile)) } : null,
-      play: a.play ? { developerId: a.play.developerId, serviceAccountFile: a.play.serviceAccountFile, filePresent, clientEmail, apps: a.play.apps } : null,
+      play: a.play ? { developerId: a.play.developerId ?? '', serviceAccountFile: a.play.serviceAccountFile, filePresent, clientEmail, apps: a.play.apps } : null,
     };
   }
 

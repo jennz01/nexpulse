@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, ReactNode } from 'react';
-import type { StoreAccountInput, StoreAccountView, StorePlayAppInput, StoreTestResult } from '../../../shared/types';
-import { listStoreAccounts, removeStoreAccount, saveStoreAccount, testStoreAccount } from '../api';
+import type { AppStoreApp, PlayAppOverride, PlayFoundApp, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../../shared/types';
+import { findPlayApps, listStoreAccounts, removeStoreAccount, saveStoreAccount, testStoreAccount } from '../api';
 import { IconClose } from '../icons';
+import { iosPartner } from '../panels/Stores';
 import type { DashboardState } from '../state';
 import { Card } from './Preferences';
 
@@ -23,6 +24,8 @@ export function storeStatus(src: SourceBits, configured: boolean, filePresent: b
   if (!src.polled) return { tone: 'grey', text: 'waiting for the first poll…' };
   return count > 0 ? { tone: 'green', text: `OK · ${count} app${count === 1 ? '' : 's'}` } : { tone: 'amber', text: 'OK, but no apps visible to this key' };
 }
+
+const hiddenCount = (a: StoreAccountView) => a.play?.apps.filter((o) => o.hidden).length ?? 0;
 
 function AccountRow({ a, state, onEdit, onRemove }: { a: StoreAccountView; state: DashboardState; onEdit: () => void; onRemove: () => void }) {
   const asc = state.states.appstore;
@@ -47,7 +50,7 @@ function AccountRow({ a, state, onEdit, onRemove }: { a: StoreAccountView; state
       <div className="acct-row">
         <span className="muted">Google Play</span>
         <span className="clip">
-          {a.play ? <>{a.play.clientEmail ?? a.play.serviceAccountFile} · {a.play.apps.length} app{a.play.apps.length === 1 ? '' : 's'} configured</> : <span className="faint">—</span>}
+          {a.play ? <>{a.play.clientEmail ?? a.play.serviceAccountFile}{hiddenCount(a) ? ` · ${hiddenCount(a)} hidden` : ''}</> : <span className="faint">—</span>}
         </span>
         <Status tone={s2.tone}>{s2.text}</Status>
       </div>
@@ -68,11 +71,31 @@ function TestResult({ r }: { r: StoreTestResult }) {
   );
 }
 
-interface DialogProps { initial: StoreAccountInput; ascNames: string[]; onClose: () => void; onSaved: (list: StoreAccountView[]) => void }
+interface DialogProps { initial: StoreAccountInput; iosApps: AppStoreApp[]; onClose: () => void; onSaved: (list: StoreAccountView[]) => void }
 
-const emptyApp = (): StorePlayAppInput => ({ packageName: '', name: '' });
+/** One app the key can see: show it or not, and which iOS app's row it joins (Auto = same name, else same bundle id). */
+function PlayAppRow({ app, override, ios, missing, onChange }: { app: PlayFoundApp; override: PlayAppOverride | undefined; ios: AppStoreApp[]; missing: boolean; onChange: (patch: Partial<PlayAppOverride>) => void }) {
+  const auto = iosPartner({ packageName: app.packageName, name: app.displayName }, ios);
+  const names = [...new Set([...ios.map((a) => a.name), ...(override?.name ? [override.name] : [])])].sort();
+  const hidden = !!override?.hidden;
+  return (
+    <div className={`playapp${hidden ? ' off' : ''}`}>
+      <input type="checkbox" checked={!hidden} title={hidden ? 'Hidden from the dashboard' : 'Shown on the dashboard'} onChange={(e) => onChange({ hidden: !e.target.checked })} />
+      <span className="clip">
+        {app.displayName}
+        <span className="sub mono">{app.packageName}{missing ? ' · not visible to this key' : ''}</span>
+      </span>
+      {names.length > 0 ? (
+        <select value={override?.name ?? ''} disabled={hidden} title="App Store app whose row this joins" onChange={(e) => onChange({ name: e.target.value || undefined })}>
+          <option value="">{auto ? `Auto: ${auto.name}` : 'Auto: own row'}</option>
+          {names.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      ) : <span className="muted">own row</span>}
+    </div>
+  );
+}
 
-function AccountDialog({ initial, ascNames, onClose, onSaved }: DialogProps) {
+function AccountDialog({ initial, iosApps, onClose, onSaved }: DialogProps) {
   const editing = !!initial.originalName;
   const [name, setName] = useState(initial.name);
   const [asc, setAsc] = useState(initial.appstore);
@@ -94,7 +117,35 @@ function AccountDialog({ initial, ascNames, onClose, onSaved }: DialogProps) {
     const p = kind === 'test' ? testStoreAccount(input()).then(setResult) : saveStoreAccount(input()).then(onSaved);
     p.catch((e: Error) => setError(e.message)).finally(() => setBusy(null));
   };
-  const setApp = (i: number, patch: Partial<StorePlayAppInput>) => setPlay((p) => p && { ...p, apps: p.apps.map((a, j) => (j === i ? { ...a, ...patch } : a)) });
+
+  // Play apps come from the key itself; look them up whenever a key is available (stored one when editing, or a new file).
+  const [found, setFound] = useState<PlayFoundApp[] | null>(null);
+  const [finding, setFinding] = useState(false);
+  const [findError, setFindError] = useState<string | null>(null);
+  const canFind = !!play && (!!play.serviceAccountJson || (editing && !!initial.play));
+  const find = () => {
+    setFinding(true);
+    setFindError(null);
+    findPlayApps(input()).then(setFound).catch((e: Error) => setFindError(e.message)).finally(() => setFinding(false));
+  };
+  useEffect(() => {
+    if (canFind) find();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canFind, play?.serviceAccountJson]);
+
+  const setOverride = (packageName: string, patch: Partial<PlayAppOverride>) => setPlay((p) => {
+    if (!p) return p;
+    const next: PlayAppOverride = { ...(p.apps.find((a) => a.packageName === packageName) ?? { packageName }), ...patch };
+    if (!next.name) delete next.name;
+    if (!next.hidden) delete next.hidden;
+    const rest = p.apps.filter((a) => a.packageName !== packageName);
+    return { ...p, apps: next.name || next.hidden ? [...rest, next] : rest };
+  });
+  const accountIos = iosApps.filter((a) => a.account === (initial.originalName ?? name.trim()));
+  // Overrides for apps the key no longer sees stay listed, so they are not silently lost.
+  const playRows: { app: PlayFoundApp; missing: boolean }[] = found
+    ? [...found.map((app) => ({ app, missing: false })), ...(play?.apps ?? []).filter((o) => !found.some((f) => f.packageName === o.packageName)).map((o) => ({ app: { packageName: o.packageName, displayName: o.name ?? o.packageName }, missing: true }))]
+    : [];
 
   return (
     <div className="backdrop">
@@ -140,7 +191,7 @@ function AccountDialog({ initial, ascNames, onClose, onSaved }: DialogProps) {
           <div className="fset">
             <div className="fset-h">
               Google Play
-              <label className="chk"><input type="checkbox" checked={!!play} onChange={(e) => setPlay(e.target.checked ? { developerId: '', apps: [emptyApp()] } : null)} />{play ? 'on' : 'off'}</label>
+              <label className="chk"><input type="checkbox" checked={!!play} onChange={(e) => setPlay(e.target.checked ? { developerId: '', apps: [] } : null)} />{play ? 'on' : 'off'}</label>
             </div>
             {play && (
               <>
@@ -152,24 +203,31 @@ function AccountDialog({ initial, ascNames, onClose, onSaved }: DialogProps) {
                   <span className="muted">{saFile ?? (editing && initial.play ? 'keeping the current file' : 'no file chosen')}</span>
                 </div>
                 <div className="field">
-                  <span className="lbl">Developer ID</span>
+                  <span className="lbl">Developer ID <span className="faint">(optional)</span></span>
                   <input type="text" value={play.developerId} onChange={(e) => setPlay({ ...play, developerId: e.target.value })} placeholder="the long number in the Play Console URL" />
+                  <span className="hint">Only used so links open this developer account in Play Console.</span>
                 </div>
                 <div className="field">
-                  <span className="lbl">Apps</span>
-                  {play.apps.map((app, i) => (
-                    <div className="approw" key={i}>
-                      <input type="text" value={app.packageName} onChange={(e) => setApp(i, { packageName: e.target.value })} placeholder="com.company.app" />
-                      <input type="text" list="asc-app-names" value={app.name} onChange={(e) => setApp(i, { name: e.target.value })} placeholder="Name as in App Store Connect" />
-                      <input type="text" value={app.consoleUrl ?? ''} onChange={(e) => setApp(i, { consoleUrl: e.target.value || undefined })} placeholder="Play Console URL (optional)" />
-                      <button className="iconbtn sm" title="Remove app" onClick={() => setPlay({ ...play, apps: play.apps.filter((_, j) => j !== i) })}><IconClose size={14} /></button>
-                    </div>
-                  ))}
-                  <datalist id="asc-app-names">{ascNames.map((n) => <option key={n} value={n} />)}</datalist>
-                  <button className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => setPlay({ ...play, apps: [...play.apps, emptyApp()] })}>+ Add app</button>
-                  <span className="hint">Google's API cannot list your apps, so name each package. The display name must match App Store Connect so both stores share a row; suggestions come from the App Store accounts already connected.</span>
+                  <span className="lbl playapps-h">
+                    Apps found by this key
+                    {canFind && <button className="btn sm" disabled={finding} onClick={find}>{finding ? 'Looking…' : '↻ Refresh'}</button>}
+                  </span>
+                  {!canFind ? (
+                    <span className="muted">Choose the service account JSON to list the apps it can see.</span>
+                  ) : findError ? (
+                    <span className="error">{findError}</span>
+                  ) : found == null ? (
+                    <span className="muted">Looking for apps…</span>
+                  ) : playRows.length === 0 ? (
+                    <span className="muted">This key sees no apps yet. Invite it in Play Console, then refresh.</span>
+                  ) : (
+                    playRows.map(({ app, missing }) => (
+                      <PlayAppRow key={app.packageName} app={app} missing={missing} ios={accountIos} override={play.apps.find((o) => o.packageName === app.packageName)} onChange={(patch) => setOverride(app.packageName, patch)} />
+                    ))
+                  )}
+                  <span className="hint">The dashboard re-reads this list on every poll, so new apps appear by themselves. Untick an app to hide it. Auto puts it on the row of the App Store app with the same name or bundle ID; pick one by hand when they differ.</span>
                 </div>
-                <span className="hint">Google Cloud → IAM → Service Accounts → Keys → JSON. Enable the Google Play Android Developer API in that project, then invite the service account in Play Console with "View app information".</span>
+                <span className="hint">Google Cloud → IAM → Service Accounts → Keys → JSON. In that project enable the Google Play Android Developer API and the Google Play Developer Reporting API, then invite the service account in Play Console with "View app information".</span>
               </>
             )}
           </div>
@@ -203,7 +261,7 @@ export function StoreAccounts({ state, reload }: Props) {
     listStoreAccounts().then(setAccounts).catch((e: Error) => setError(e.message));
   }, []);
 
-  const ascNames = [...new Set((state.states.appstore.snapshot?.apps ?? []).map((a) => a.name))].sort();
+  const iosApps = state.states.appstore.snapshot?.apps ?? [];
 
   const onRemove = async (a: StoreAccountView) => {
     const files = [a.appstore?.keyFile, a.play?.serviceAccountFile].filter(Boolean).join(' and ');
@@ -237,7 +295,7 @@ export function StoreAccounts({ state, reload }: Props) {
       )}
       <span className="hint">Keys are stored in config/secrets on this machine and never shown again here. Saving switches the stores on right away, no restart needed.</span>
       {editing && (
-        <AccountDialog initial={editing} ascNames={ascNames} onClose={() => setEditing(null)} onSaved={(list) => { setAccounts(list); setEditing(null); reload(); }} />
+        <AccountDialog initial={editing} iosApps={iosApps} onClose={() => setEditing(null)} onSaved={(list) => { setAccounts(list); setEditing(null); reload(); }} />
       )}
     </Card>
   );

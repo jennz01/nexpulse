@@ -342,7 +342,13 @@ export interface AttentionChip {
 }
 
 // ---- Store account management (Settings page) ----
-export interface StorePlayAppInput { packageName: string; name: string; consoleUrl?: string }
+/**
+ * Play apps are discovered from the service account on every poll; this only records what to do differently for one:
+ * `name` replaces the Play title (pick the App Store name to share its row), `hidden` drops the app from the dashboard.
+ */
+export interface PlayAppOverride { packageName: string; name?: string; hidden?: boolean }
+/** An app the service account can see, as Google's apps:search returns it. */
+export interface PlayFoundApp { packageName: string; displayName: string }
 /** What the Settings form sends. Key material travels only browser -> server, never back. */
 export interface StoreAccountInput {
   name: string;
@@ -351,13 +357,13 @@ export interface StoreAccountInput {
   /** keyPem may be omitted when editing to keep the stored key. */
   appstore: { issuerId: string; keyId: string; keyPem?: string } | null;
   /** serviceAccountJson may be omitted when editing to keep the stored file. */
-  play: { developerId: string; serviceAccountJson?: string; apps: StorePlayAppInput[] } | null;
+  play: { developerId: string; serviceAccountJson?: string; apps: PlayAppOverride[] } | null;
 }
 /** Secret-free view of a configured account. */
 export interface StoreAccountView {
   name: string;
   appstore: { issuerId: string; keyId: string; keyFile: string; keyPresent: boolean } | null;
-  play: { developerId: string; serviceAccountFile: string; filePresent: boolean; clientEmail: string | null; apps: StorePlayAppInput[] } | null;
+  play: { developerId: string; serviceAccountFile: string; filePresent: boolean; clientEmail: string | null; apps: PlayAppOverride[] } | null;
 }
 export interface StoreTestResult {
   appstore: { ok: boolean; apps: string[]; error: string | null } | null;

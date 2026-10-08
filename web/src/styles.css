@@ -250,8 +250,14 @@ a.btn.primary:hover { color: #fff; }
 .filerow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.8125rem; }
 .filerow input[type="file"] { display: none; }
 .filerow .btn { cursor: pointer; }
-.approw { display: grid; grid-template-columns: 1.1fr 1fr 1.3fr 26px; gap: 8px; align-items: center; }
-.field .approw input { height: 32px; padding: 0 10px; font-size: 0.8125rem; min-width: 0; width: 100%; box-sizing: border-box; }
+.playapps-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.playapps-h .btn { height: 26px; padding: 0 10px; font-size: 0.75rem; font-weight: 400; }
+.playapp { display: grid; grid-template-columns: 18px minmax(0, 1fr) minmax(120px, 220px); gap: 10px; align-items: center; font-size: 0.8125rem; padding: 4px 0; }
+.playapp .clip { display: flex; flex-direction: column; }
+.playapp .sub { overflow: hidden; text-overflow: ellipsis; }
+.field .playapp input[type="checkbox"] { height: auto; padding: 0; margin: 0; }
+.field .playapp select { height: 32px; padding: 0 8px; font-size: 0.8125rem; min-width: 0; width: 100%; }
+.playapp.off > .clip { opacity: 0.5; }
 .testres { display: flex; flex-direction: column; gap: 4px; font-size: 0.8125rem; }
 .testres .ok, .testres .error { display: block; }
 
