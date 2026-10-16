@@ -171,6 +171,7 @@ a.btn.primary:hover { color: #fff; }
 .triage-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
 .triage-chips { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
 .error { font-size: 0.8125rem; color: var(--red); }
+.warn-text { font-size: 0.8125rem; color: var(--amber); }
 .ok { font-size: 0.8125rem; color: var(--green); display: inline-flex; align-items: center; gap: 6px; }
 
 /* ---- Shell: sidebar + content column ---- */

@@ -85,6 +85,7 @@ export function AuthDialog({ provider, onClose, onDone }: Props) {
             </div>
           )}
           {state.phase === 'done' && <span className="ok"><IconCheck size={14} />Signed in. The panels refresh in a moment.</span>}
+          {state.phase === 'done' && state.warning && <span className="warn-text">{state.warning}</span>}
           {failed && state.unconfigured && (
             <div className="steps">
               <span>lark-cli has no Lark app configured on this PC yet. That is a one-time step in a terminal; the dashboard cannot do it for you.</span>

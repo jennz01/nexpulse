@@ -379,6 +379,8 @@ export interface LoginState {
   startedAt?: number;
   /** Lark: lark-cli has no app configured on this PC; the dialog shows the one-time setup steps instead of a code. */
   unconfigured?: boolean;
+  /** Lark: signed in, but a scope the dashboard relies on (often offline_access) was not granted. */
+  warning?: string;
 }
 
 // ---- UI ----

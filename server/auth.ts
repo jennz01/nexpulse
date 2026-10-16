@@ -21,6 +21,45 @@ const firstLine = (s: string) => s.trim().split(/\r?\n/)[0] ?? '';
 const lastLine = (s: string) => s.trim().split(/\r?\n/).filter(Boolean).pop() ?? '';
 const AUTH_ERROR = /auth login|not logged|authentication|token|HTTP 401|unauthori[sz]ed|expired/i;
 
+/**
+ * What NexPulse and the lark-issue-triage skill read through lark-cli, plus offline_access so Lark issues a refresh token
+ * and the session renews itself instead of lapsing after about 2 hours. Asking for everything (`--domain all`) made Lark
+ * answer with a long "not granted" list for scopes the app never enabled. Lark sign-ins add up, so scopes granted for
+ * other tools stay.
+ */
+export const LARK_SCOPES = [
+  'base:app:read', 'base:table:read', 'base:view:read', 'base:field:read', 'base:record:read',
+  'docs:document.comment:read', 'docs:document.media:download',
+  'contact:user.base:readonly', 'contact:user.basic_profile:readonly', 'auth:user.id:read',
+  'offline_access',
+];
+
+/** lark-cli's final word on a sign-in: whether it completed, and which requested scopes Lark left out. */
+export function larkLoginResult(output: string): { complete: boolean; missing: string[] } {
+  const candidates = [output.trim(), ...output.split(/\r?\n/).map((line) => line.trim())].filter((s) => s.startsWith('{'));
+  for (const candidate of candidates) {
+    try {
+      const json = JSON.parse(candidate) as Record<string, unknown>;
+      const data = (json.data && typeof json.data === 'object' ? json.data : json) as Record<string, unknown>;
+      if (data.event === 'authorization_complete') {
+        return { complete: true, missing: Array.isArray(data.missing) ? data.missing.filter((s): s is string => typeof s === 'string') : [] };
+      }
+    } catch { /* not the result object */ }
+  }
+  return { complete: false, missing: [] };
+}
+
+/** One plain sentence about scopes NexPulse relies on that Lark did not grant; null when none of them is missing. */
+export function larkScopeWarning(missing: string[]): string | null {
+  const needed = missing.filter((s) => LARK_SCOPES.includes(s));
+  if (needed.length === 0) return null;
+  const parts: string[] = [];
+  if (needed.includes('offline_access')) parts.push('Lark will not renew this sign-in, so it lapses in about 2 hours (offline_access is not enabled on this PC\'s Lark app)');
+  const others = needed.filter((s) => s !== 'offline_access');
+  if (others.length) parts.push(`the dashboard reads with these scopes, which were not granted: ${others.join(', ')}`);
+  return `Signed in, but ${parts.join('; and ')}. Enable ${needed.length > 1 ? 'them' : 'it'} in the Lark Developer Console (your app › Permissions & Scopes), publish a new app version, then authorize again.`;
+}
+
 interface Flow { state: LoginState; proc: Subprocess | null; timer: ReturnType<typeof setTimeout> | null }
 const idle = (): Flow => ({ state: { phase: 'idle' }, proc: null, timer: null });
 /** lark-cli has never been set up on this PC (`lark-cli config init`): the dialog shows the one-time steps instead of a code. */
@@ -145,9 +184,11 @@ export class AuthManager {
   }
 
   private async startLark(flow: Flow): Promise<void> {
-    if (!this.larkScope) await this.larkStatus(); // learn the current token's scopes so a re-login asks for the same set
-    // The same scopes as today, comma-separated (no spaces: lark-cli runs through a cmd.exe shim on Windows); a brand-new login gets everything.
-    const scopeArgs = this.larkScope ? ['--scope', this.larkScope.split(/\s+/).filter(Boolean).join(',')] : ['--domain', 'all'];
+    if (!this.larkScope) await this.larkStatus(); // learn the current token's scopes so a re-login keeps them
+    // What the dashboard needs plus what the session already has, comma-separated (no spaces: lark-cli runs through a
+    // cmd.exe shim on Windows). Never `--domain all`: Lark would list every scope the app lacks as "not granted".
+    const scopes = new Set([...LARK_SCOPES, ...(this.larkScope ?? '').split(/\s+/).filter(Boolean)]);
+    const scopeArgs = ['--scope', [...scopes].join(',')];
     const res = await this.runner('lark-cli', ['auth', 'login', '--no-wait', '--json', ...scopeArgs], { timeoutMs: 60_000 });
     if (res.timedOut) throw new Error('lark-cli did not start the sign-in within 60 s');
     let json: Record<string, unknown> | null = null;
@@ -176,15 +217,18 @@ export class AuthManager {
     if (flow.proc !== proc) return; // cancelled or superseded
     this.clear(flow);
     const text = output();
-    const failed = code !== 0 || /"ok"\s*:\s*false/.test(text);
+    // lark-cli exits non-zero when any requested scope was refused, even though the sign-in itself completed.
+    const lark = provider === 'lark' ? larkLoginResult(text) : null;
+    const failed = !lark?.complete && (code !== 0 || /"ok"\s*:\s*false/.test(text));
     if (failed) {
       flow.state = { ...flow.state, phase: 'failed', message: lastLine(text.replace(/\{[\s\S]*\}/, (m) => { try { return String((JSON.parse(m) as { error?: { message?: string } }).error?.message ?? m); } catch { return m; } })) || `${provider === 'github' ? 'gh' : 'lark-cli'} exited ${code}` };
       this.opts.log?.(`${provider}: sign-in failed: ${flow.state.message}`);
       return;
     }
     this.invalidate();
-    flow.state = { ...flow.state, phase: 'done' };
-    this.opts.log?.(`${provider}: sign-in completed`);
+    const warning = lark ? larkScopeWarning(lark.missing) : null;
+    flow.state = { ...flow.state, phase: 'done', ...(warning ? { warning } : {}) };
+    this.opts.log?.(`${provider}: sign-in completed${warning ? ` (${warning})` : ''}`);
     try { await this.opts.onLogin?.(provider); } catch (e) { this.opts.log?.(`${provider}: post-login refresh failed: ${(e as Error).message}`); }
   }
 
