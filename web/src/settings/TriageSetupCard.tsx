@@ -30,7 +30,7 @@ export function TriageSetupCard() {
         if (window.confirm(`This zip is older than the installed v${r.previous}. Install it anyway?`)) return await install(file, true);
         setNote({ tone: 'error', text: `Kept v${r.previous}.` });
       } else {
-        setNote({ tone: 'ok', text: `Installed v${r.installed ?? '?'}${r.openSessions ? ` · ${r.openSessions} open triage session(s) keep the old instructions until restarted` : ''}` });
+        setNote({ tone: 'ok', text: `Installed v${r.installed ?? '?'} · zip SHA-256 ${r.sha256.slice(0, 12)}…${r.openSessions ? ` · ${r.openSessions} open triage session(s) keep the old instructions until restarted` : ''}` });
       }
       await load();
     } catch (e) {
@@ -97,7 +97,7 @@ export function TriageSetupCard() {
         </span>
       </div>
       {note && <span className={note.tone === 'ok' ? 'ok' : 'error'}>{note.text}</span>}
-      <span className="hint">Get the skill zip from your team lead. Updating keeps your settings; open triage sessions keep the old instructions until restarted.</span>
+      <span className="hint">Get the skill zip from your team lead, and check that the SHA-256 shown after installing matches the one they posted. Updating keeps your settings; open triage sessions keep the old instructions until restarted.</span>
     </Card>
   );
 }

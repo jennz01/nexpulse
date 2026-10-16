@@ -20,7 +20,7 @@ const RECORD_ID = /^rec[A-Za-z0-9]{4,40}$/;
 const SKILL_MARK = /\/lark-issue-triage (rec[A-Za-z0-9]+)/g;
 const SESSION_MARK = /--(?:session-id|resume)[ =]"?([0-9a-f-]{36})/gi;
 /** Variables that would bill an API key or another provider instead of the Claude subscription; cleared inside the tab. */
-const NOT_SUBSCRIPTION = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'];
+const NOT_SUBSCRIPTION = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'];
 const NO_TERMINAL = 'Windows Terminal not found: install it from the Microsoft Store';
 
 export class TriageError extends Error {
@@ -85,11 +85,10 @@ export class TriageLauncher {
     return !!dir && existsSync(join(sessionsDirFor(dir), `${row.sessionId}.jsonl`));
   }
 
-  /** Latest session per issue, kept only when Claude wrote its file (a launch that failed early has nothing to resume). */
+  /** Newest session per issue that Claude actually wrote; a launch that failed early never hides an older, resumable one. */
   private latest(workdir: string | null): Map<string, TriageSessionRow> {
     const out = new Map<string, TriageSessionRow>();
-    for (const row of this.sessions.all()) out.set(row.recordId, row); // oldest first, so the last write wins
-    for (const [id, row] of out) if (!this.sessionExists(row, workdir)) out.delete(id);
+    for (const row of this.sessions.all()) if (this.sessionExists(row, workdir)) out.set(row.recordId, row); // oldest first, so the newest wins
     return out;
   }
 
@@ -112,7 +111,9 @@ export class TriageLauncher {
     // The ticket id only labels the tab, and wt.exe treats ; as a command separator, so it is cut down to safe characters.
     const label = (record.fields.ticketId || recordId).replace(/[^#A-Za-z0-9-]/g, '');
     if (previous) {
-      await this.openTab(`Triage ${label} (resumed)`, previous.workdir ?? s.workdir, `& claude --resume ${previous.sessionId}`);
+      const dir = previous.workdir ?? s.workdir;
+      if (!existsSync(dir)) throw new TriageError(`working folder ${dir} of the earlier session no longer exists: start a new triage instead`, 409);
+      await this.openTab(`Triage ${label} (resumed)`, dir, `& claude --resume ${previous.sessionId}`);
     } else {
       // Recorded before the launch so the confirm loop below can already tell this session apart.
       const sessionId = randomUUID();
@@ -148,7 +149,8 @@ export class TriageLauncher {
   private async openIds(): Promise<string[]> {
     const res = await this.run('powershell', [
       '-NoProfile', '-NonInteractive', '-Command',
-      `Get-CimInstance Win32_Process -Filter "Name='claude.exe'" | ForEach-Object { $_.CommandLine }`,
+      // npm installs of Claude Code run as node.exe; the markers below only match triage sessions either way.
+      `Get-CimInstance Win32_Process -Filter "Name='claude.exe' OR Name='node.exe'" | ForEach-Object { $_.CommandLine }`,
     // PowerShell's own start-up is most of the 2 s this usually takes; with triage sessions running and RAM short it passed 15 s.
     ], { timeoutMs: 45_000 });
     if (res.code !== 0) throw new TriageError(`could not list Claude sessions (${res.stderr.trim() || `exit ${res.code}`})`, 502);

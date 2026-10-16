@@ -117,7 +117,20 @@ const isSourceId = (s: string): s is SourceId => (SOURCE_IDS as readonly string[
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
 
+  // The dashboard is never meant to be framed: a hostile page could otherwise overlay it and borrow a click.
+  app.use('*', async (c, next) => {
+    await next();
+    try {
+      c.res.headers.set('X-Frame-Options', 'DENY');
+      c.res.headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+    } catch { /* some proxied responses carry immutable headers */ }
+  });
+
   app.use('/api/*', async (c, next) => {
+    // Browsers label every request with where it came from; only the dashboard's own pages may call the API, GETs included
+    // (some GETs start local processes). Clients that send no label, like curl and the tests, are not browsers.
+    const site = c.req.header('sec-fetch-site');
+    if (site && site !== 'same-origin' && site !== 'none') return c.json({ error: 'cross-site request refused' }, 403);
     const host = c.req.header('host');
     if (host && deps.allowedHosts && deps.allowedHosts.length > 0 && !deps.allowedHosts.map((h) => h.toLowerCase()).includes(host.toLowerCase())) {
       return c.json({ error: 'host not allowed' }, 403);

@@ -185,6 +185,8 @@ export interface SkillInstallResult {
   needsConfirm?: boolean;
   /** Open triage sessions at install time; they keep the old instructions until restarted. */
   openSessions: number;
+  /** SHA-256 of the zip as received, to compare with the one the team lead posts. */
+  sha256: string;
 }
 /** A fresh run of the skill's setup checks: tools, and every clone found per repo key. Not saved. */
 export interface TriageSetupCheck {

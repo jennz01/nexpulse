@@ -166,13 +166,14 @@ const triage: TriageActions = {
   openSetup: () => triageLauncher.openSetup(),
   checkSetup: async () => {
     if (readTriageSetup().setup === 'no-skill') throw new TriageError('Install the lark-issue-triage skill first (Settings › Issue triage)', 409);
-    const res = await run('python', [join(SKILL_DIR, 'scripts', 'setup.py'), '--detect'], { timeoutMs: 60_000 });
+    const res = await run('python', [join(SKILL_DIR, 'scripts', 'setup.py'), '--detect', '--tools-only'], { timeoutMs: 60_000 });
+    if (res.timedOut) throw new TriageError('setup check timed out after 60 s (Lark or the network may be slow); try again', 502);
     if (res.code !== 0) throw new TriageError(`setup check failed: ${res.stderr.trim().split('\n').pop() || `exit ${res.code}`}`, 502);
-    const out = JSON.parse(res.stdout) as { checks: TriageSetupCheck['tools']; repos: TriageSetupCheck['found'] };
-    return { tools: out.checks, found: out.repos };
+    const out = JSON.parse(res.stdout) as { checks: TriageSetupCheck['tools']; repos?: TriageSetupCheck['found'] };
+    return { tools: out.checks, found: out.repos ?? {} };
   },
   installSkill: async (bytes, confirmOlder) => {
-    const result = installSkill(bytes, { skillDir: SKILL_DIR, confirmOlder });
+    const result = await installSkill(bytes, { skillDir: SKILL_DIR, confirmOlder });
     const openSessions = readTriageSetup().setup === 'ready' ? (await triageLauncher.status()).open.length : 0;
     if (result.installed) log(`triage: skill ${result.previous ?? 'none'} -> ${result.installed} installed from Settings`);
     return { ...result, openSessions };
