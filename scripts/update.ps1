@@ -5,13 +5,17 @@ start at logon and `bun run startup:restart` runs it before restarting; by hand,
   bun run update        (or: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update.ps1)
 
   1. git pull --ff-only   skipped when there is no upstream branch or the checkout has local changes
-  2. bun install          only when the pull brought new commits
-  3. bun run build        only when the pull brought new commits (the served UI lives in web/dist, outside git)
+  2. bun install          when bun.lock differs from the one last installed (node_modules\.nexpulse-lock)
+  3. bun run build        when web\dist was built from another commit (web\dist\version.json), or not at all
+
+Steps 2 and 3 look at what is on disk, not at whether this pull brought commits: a `git pull` run by hand would
+otherwise leave new code without its packages or UI, and the next run would call it up to date. They run on a clean
+checkout only, so work in progress is never built behind your back.
 
 It never throws and never prompts. When git, the network or the build is unhappy it says why and exits 1, and the
-caller carries on with the code already there. If step 2 or 3 fails, the checkout steps back to the commit it had, so
-the server never runs new code without its packages or UI; the next sign-in tries again. Exit 0 means up to date,
-updated, or deliberately skipped.
+caller carries on with the code already there. If step 2 or 3 fails right after this pull, the checkout steps back to
+the commit it had, so the server never runs new code without its packages or UI; the next sign-in tries again.
+Exit 0 means up to date, updated, or deliberately skipped.
 #>
 param(
   # Absolute path to bun.exe; startup.ps1 bakes it into the task because the task's PATH may differ from your shell's.
@@ -72,19 +76,49 @@ function Update-Checkout {
 
   $before = (Invoke-Git @('rev-parse', 'HEAD')).text
   $pull = Invoke-Git @('pull', '--ff-only', '--no-rebase') 60
-  if ($pull.code -ne 0) { Say "git pull from $($upstream.text) failed; keeping the current code ($(FirstLine $pull.text))"; $script:exitCode = 1; return }
-  $after = (Invoke-Git @('rev-parse', 'HEAD')).text
-  if ($after -eq $before) { Say "already up to date with $($upstream.text) ($(Short $after))"; return }
-  Say "pulled $(Short $before)..$(Short $after) from $($upstream.text)"
+  $pulled = $false
+  if ($pull.code -ne 0) {
+    # Offline is common 15 s after logon; still repair packages and UI for the code already here.
+    Say "git pull from $($upstream.text) failed; keeping the current code ($(FirstLine $pull.text))"
+    $script:exitCode = 1
+  } else {
+    $after = (Invoke-Git @('rev-parse', 'HEAD')).text
+    if ($after -eq $before) { Say "already up to date with $($upstream.text) ($(Short $after))" }
+    else { Say "pulled $(Short $before)..$(Short $after) from $($upstream.text)"; $pulled = $true }
+  }
+  Sync-Built $(if ($pulled) { $before } else { $null })
+}
 
-  # Dependencies and the built UI live outside git, so new commits need both refreshed before the server serves them.
+# Packages and the built UI live outside git, so they are compared with the checked-out code on every run.
+$lockFile = Join-Path $root 'bun.lock'
+$lockStamp = Join-Path $root 'node_modules\.nexpulse-lock'
+$versionFile = Join-Path $root 'web\dist\version.json'
+
+function Lock-Hash { if (Test-Path $lockFile) { (Get-FileHash $lockFile -Algorithm SHA256).Hash } else { '' } }
+
+function Install-Packages {
   $r = Invoke-Bun @('install')
-  if ($r.code -ne 0) { Fail 'bun install' $r; Undo-Pull $before; return }
-  Say 'bun install ok'
-  $r = Invoke-Bun @('run', 'build')
-  if ($r.code -ne 0) { Fail 'bun run build' $r; Undo-Pull $before; return }
-  Say 'bun run build ok'
-  Say 'update complete'
+  if ($r.code -eq 0) { Set-Content -Path $lockStamp -Value (Lock-Hash) -Encoding ascii }
+  return $r
+}
+
+function Sync-Built([string] $rollbackTo) {
+  $installed = if (Test-Path $lockStamp) { (Get-Content $lockStamp -Raw).Trim() } else { '' }
+  if ($installed -ne (Lock-Hash)) {
+    $r = Install-Packages
+    if ($r.code -ne 0) { Fail 'bun install' $r; if ($rollbackTo) { Undo-Pull $rollbackTo }; return }
+    Say 'bun install ok'
+  }
+  $head = (Invoke-Git @('rev-parse', 'HEAD')).text
+  # Builds made before v0.35 have no version.json; treat them as built from another commit.
+  $built = $null
+  if (Test-Path $versionFile) { try { $built = (Get-Content $versionFile -Raw -ErrorAction Stop | ConvertFrom-Json).sha } catch { $built = $null } }
+  if (-not $built -or -not $head.StartsWith($built)) {
+    $r = Invoke-Bun @('run', 'build')
+    if ($r.code -ne 0) { Fail 'bun run build' $r; if ($rollbackTo) { Undo-Pull $rollbackTo }; return }
+    Say "bun run build ok (the UI was built from $(if ($built) { $built } else { 'an older version' }))"
+  }
+  if ($rollbackTo) { Say 'update complete' }
 }
 
 function Undo-Pull([string] $before) {
@@ -95,7 +129,7 @@ function Undo-Pull([string] $before) {
   if ($reset.code -ne 0) { Say "could not step back to $(Short $before): $(FirstLine $reset.text)"; return }
   Say "stepped back to $(Short $before); the update is retried at the next sign-in"
   # The failed step may have half-written node_modules or emptied web/dist; restore both for the old commit (best effort).
-  $r = Invoke-Bun @('install')
+  $r = Install-Packages
   if ($r.code -ne 0) { Say "  bun install for $(Short $before) also failed (exit $($r.code)); the server may not start" }
   $r = Invoke-Bun @('run', 'build')
   if ($r.code -ne 0) { Say "  bun run build for $(Short $before) also failed (exit $($r.code))" }
