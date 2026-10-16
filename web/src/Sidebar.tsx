@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import type { AttentionChip, Event, PanelId, Tone } from '../../shared/types';
 import { IconBuilds, IconChevronLeft, IconChevronRight, IconHome, IconLogo, IconReleases, IconSettings, IconStores } from './icons';
+import { buildLabel, PAGE_BUILD } from './build';
 import type { Page } from './router';
+import { formatDay } from './time';
 import { NAV_PAGES, PAGE_TITLE, pageForPanel } from './router';
 
 const PAGE_ICON: Record<Page, ReactNode> = {
@@ -64,6 +66,10 @@ export function Sidebar({ page, onNavigate, unread, chips, collapsed, canToggle,
           </button>
         )}
       </nav>
+      <div className="sb-version mono" title={PAGE_BUILD ? `NexPulse ${buildLabel(PAGE_BUILD)} · built ${formatDay(PAGE_BUILD.builtAt)}${PAGE_BUILD.dirty ? ' from uncommitted changes' : ''}` : 'Served by vite dev'}>
+        <span className="label">{PAGE_BUILD ? buildLabel(PAGE_BUILD) : 'dev'}</span>
+        <span className="short">{PAGE_BUILD?.version ?? 'dev'}</span>
+      </div>
     </aside>
   );
 }

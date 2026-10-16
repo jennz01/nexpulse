@@ -1,10 +1,11 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { computeAttention } from '../../shared/attention';
 import { SOURCE_IDS } from '../../shared/types';
-import type { AuthProvider, PanelId, SourceId } from '../../shared/types';
+import type { AuthProvider, BuildInfo, PanelId, SourceId } from '../../shared/types';
 import { fetchState, markSeen, openEvents, refreshSource, switchGithubAccount } from './api';
 import { AuthDialog } from './auth/AuthDialog';
 import { authProblems, useAuthStatus } from './auth/useAuthStatus';
+import { buildLabel, PAGE_BUILD } from './build';
 import { freshness } from './freshness';
 import { IconAlert, IconCheck, IconRefresh, IconReset, IconSliders } from './icons';
 import { DEFAULT_LAYOUT, isDefaultLayout, isOnHome } from './layout/layout';
@@ -54,6 +55,8 @@ export default function App() {
   const narrow = useMediaQuery('(max-width: 1199px)');
   const collapsed = narrow || settings.sidebar === 'collapsed';
 
+  /** A newer UI build the server has shipped since this page loaded; offered as a reload, never forced. */
+  const [update, setUpdate] = useState<BuildInfo | null>(null);
   const load = () => fetchState().then((p) => dispatch({ type: 'loaded', payload: p })).catch((e: Error) => dispatch({ type: 'error', message: e.message }));
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function App() {
         if (s === 'live' && wasOffline.current) void load(); // reconnect: catch up on anything missed (spec §8)
         wasOffline.current = s === 'offline';
       },
+      (b) => { if (b && PAGE_BUILD && b.id !== PAGE_BUILD.id) setUpdate(b); },
     );
   }, []);
 
@@ -156,6 +160,13 @@ export default function App() {
           </div>
         </header>
 
+        {update && (
+          <div className="banner info" role="status">
+            <IconRefresh size={16} />
+            <span><b>NexPulse was updated</b> to {buildLabel(update)} · reload to use it</span>
+            <button className="btn" onClick={() => window.location.reload()}>Reload</button>
+          </div>
+        )}
         {problems.map((p) => (
           <div key={p.provider} className={`banner ${p.severity}`} role="alert">
             <IconAlert size={16} />
