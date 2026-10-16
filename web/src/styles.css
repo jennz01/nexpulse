@@ -168,6 +168,8 @@ a.btn.primary:hover { color: #fff; }
 .dlg-f { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border2); background: var(--surface2); border-radius: 0 0 10px 10px; }
 .dlg-f-start { margin-right: auto; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .dlg-f .btn { white-space: nowrap; flex: none; }
+.triage-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.triage-chips { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
 .error { font-size: 0.8125rem; color: var(--red); }
 .ok { font-size: 0.8125rem; color: var(--green); display: inline-flex; align-items: center; gap: 6px; }
 

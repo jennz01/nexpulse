@@ -5,6 +5,7 @@ import { LarkBaseCard } from '../settings/LarkBaseCard';
 import { Preferences } from '../settings/Preferences';
 import { ReposCard } from '../settings/ReposCard';
 import { StoreAccounts } from '../settings/StoreAccounts';
+import { TriageSetupCard } from '../settings/TriageSetupCard';
 import type { PageContext } from './context';
 
 export function SettingsPage({ state, settings, patchSettings, reload, auth, refreshAuth, openLogin }: PageContext) {
@@ -14,6 +15,7 @@ export function SettingsPage({ state, settings, patchSettings, reload, auth, ref
       <ConnectionsCard status={auth} onRefresh={refreshAuth} openLogin={openLogin} onCodemagicChanged={reload} />
       <ReposCard selected={state.config?.githubRepos ?? []} onSaved={reload} />
       <LarkBaseCard base={state.config?.larkBase} onSaved={reload} />
+      <TriageSetupCard />
       <Preferences settings={settings} onChange={patchSettings} permission={permission} onRequestPermission={() => void requestPermission().then(setPermission)} config={state.config} />
       <StoreAccounts state={state} reload={reload} />
     </main>
