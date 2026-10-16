@@ -3,13 +3,14 @@ import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { LarkTableKey } from './config';
 import { SOURCE_IDS } from '../shared/types';
-import type { AuthProvider, AuthStatus, BuildInfo, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput, TriageSetupCheck, TriageSetupInfo, TriageStatus } from '../shared/types';
+import type { AuthProvider, AuthStatus, BuildInfo, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, SkillInstallResult, StoreAccountInput, TriageSetupCheck, TriageSetupInfo, TriageStatus } from '../shared/types';
 import { AccountInputError } from './accounts';
 import type { StoreAccounts } from './accounts';
 import type { Scheduler } from './scheduler';
 import { describeError } from './sources/types';
 import type { SseHub } from './sse';
 import type { Store } from './store';
+import { SkillZipError } from './skillInstall';
 import { TriageError } from './triage';
 
 export interface CodemagicActions {
@@ -70,6 +71,8 @@ export interface TriageActions {
   openSetup(): Promise<void>;
   /** Runs the skill's `setup.py --detect`; returns its tool checks and the clones it found, without saving them. */
   checkSetup(): Promise<TriageSetupCheck>;
+  /** Installs the skill from a zip (throws SkillZipError for a bad one); an older zip needs `confirmOlder`. */
+  installSkill(bytes: Uint8Array, confirmOlder: boolean): Promise<SkillInstallResult>;
 }
 
 const isLarkTable = (t: string): t is LarkTableKey => t === 'tasks' || t === 'issues' || t === 'feedback';
@@ -81,6 +84,8 @@ const VIEW_ID = /^vew[A-Za-z0-9]+$/;
 const RECORD_ID = /^rec[A-Za-z0-9]{4,40}$/;
 /** Base file tokens and Drive media tokens share this shape. */
 const FILE_TOKEN = /^[A-Za-z0-9_-]{8,80}$/;
+/** The triage skill zip is a few hundred KB; this only stops a wrong file from being read whole. */
+const MAX_SKILL_ZIP = 10 * 1024 * 1024;
 const LARK_DOMAIN = /^[a-z0-9.-]+\.[a-z]{2,}$/;
 
 export interface AppDeps {
@@ -268,6 +273,18 @@ export function createApp(deps: AppDeps): Hono {
       return c.json(await deps.triage.checkSetup());
     } catch (err) {
       return triageError(c, err);
+    }
+  });
+  app.post('/api/lark/triage/skill', async (c) => {
+    if (!deps.triage) return c.json({ error: 'not available' }, 409);
+    const size = Number(c.req.header('content-length') ?? 0);
+    if (size > MAX_SKILL_ZIP) return c.json({ error: 'zip is larger than 10 MB' }, 413);
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > MAX_SKILL_ZIP) return c.json({ error: 'send the skill zip as the request body (up to 10 MB)' }, 400);
+    try {
+      return c.json(await deps.triage.installSkill(bytes, c.req.query('confirm') === 'older'));
+    } catch (err) {
+      return c.json({ error: describeError(err) }, err instanceof SkillZipError ? 400 : 500);
     }
   });
   app.post('/api/lark/triage/:recordId', async (c) => {

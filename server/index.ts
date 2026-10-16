@@ -19,6 +19,7 @@ import { listTables, listViews } from './sources/lark';
 import { SseHub } from './sse';
 import { Store } from './store';
 import { TriageError, TriageLauncher } from './triage';
+import { installSkill } from './skillInstall';
 import { readTriageSetup, SKILL_DIR } from './triageSetup';
 import type { BuildInfo, CodemagicSnapshot, LarkSnapshot, SourceId, TriageSetupCheck } from '../shared/types';
 
@@ -169,6 +170,12 @@ const triage: TriageActions = {
     if (res.code !== 0) throw new TriageError(`setup check failed: ${res.stderr.trim().split('\n').pop() || `exit ${res.code}`}`, 502);
     const out = JSON.parse(res.stdout) as { checks: TriageSetupCheck['tools']; repos: TriageSetupCheck['found'] };
     return { tools: out.checks, found: out.repos };
+  },
+  installSkill: async (bytes, confirmOlder) => {
+    const result = installSkill(bytes, { skillDir: SKILL_DIR, confirmOlder });
+    const openSessions = readTriageSetup().setup === 'ready' ? (await triageLauncher.status()).open.length : 0;
+    if (result.installed) log(`triage: skill ${result.previous ?? 'none'} -> ${result.installed} installed from Settings`);
+    return { ...result, openSessions };
   },
 };
 

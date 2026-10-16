@@ -22,6 +22,7 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5",
     "@fontsource/ibm-plex-sans": "^5",
+    "fflate": "^0.8.3",
     "hono": "^4",
     "react": "^19",
     "react-dom": "^19",

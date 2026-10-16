@@ -177,6 +177,15 @@ export interface TriageSetupInfo {
   /** Version the per-PC file was written with. */
   configVersion: string | null;
 }
+/** Result of installing the triage skill from a zip in Settings. */
+export interface SkillInstallResult {
+  installed: string | null;
+  previous: string | null;
+  /** Set when the zip is older than the installed copy; nothing was installed. */
+  needsConfirm?: boolean;
+  /** Open triage sessions at install time; they keep the old instructions until restarted. */
+  openSessions: number;
+}
 /** A fresh run of the skill's setup checks: tools, and every clone found per repo key. Not saved. */
 export interface TriageSetupCheck {
   tools: Record<string, TriageCheck>;
