@@ -3,13 +3,14 @@ import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { LarkTableKey } from './config';
 import { SOURCE_IDS } from '../shared/types';
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput } from '../shared/types';
+import type { AuthProvider, AuthStatus, BuildInfo, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput, TriageStatus } from '../shared/types';
 import { AccountInputError } from './accounts';
 import type { StoreAccounts } from './accounts';
 import type { Scheduler } from './scheduler';
 import { describeError } from './sources/types';
 import type { SseHub } from './sse';
 import type { Store } from './store';
+import { TriageError } from './triage';
 
 export interface CodemagicActions {
   trigger(input: { appId: string; workflowId: string; branch: string }): Promise<{ buildId: string }>;
@@ -57,6 +58,14 @@ export interface LarkActions {
   saveBase(input: LarkBaseInput): Promise<LarkBaseInfo>;
 }
 
+export interface TriageActions {
+  status(): Promise<TriageStatus>;
+  /** Opens an interactive triage session for one issue; throws a TriageError when it may not. */
+  start(recordId: string): Promise<TriageStatus>;
+  /** Reopens the issue's most recent triage session; throws a TriageError when it may not. */
+  resume(recordId: string): Promise<TriageStatus>;
+}
+
 const isLarkTable = (t: string): t is LarkTableKey => t === 'tasks' || t === 'issues' || t === 'feedback';
 /** Lark Base tokens carry no fixed prefix, so only the shape is checked; the example config's placeholder is caught by XXXX. */
 const BASE_TOKEN = /^[A-Za-z0-9]{10,}$/;
@@ -79,6 +88,10 @@ export interface AppDeps {
   auth?: AuthActions;
   codemagicToken?: CodemagicTokenActions;
   github?: GithubActions;
+  /** The web UI build being served (web/dist/version.json), sent in the SSE hello so open pages can tell they are out of date. */
+  build?: () => BuildInfo | null;
+  /** Issue triage in local Claude sessions; absent in tests and `bun run check`. */
+  triage?: TriageActions;
   /** Store account management for the Settings page; absent in tests and `bun run check`. */
   accounts?: StoreAccounts;
   /** SSE keep-alive interval in ms; tests shorten it so no long timer outlives them. */
@@ -142,7 +155,7 @@ export function createApp(deps: AppDeps): Hono {
     streamSSE(c, async (stream) => {
       deps.hub.add(stream);
       stream.onAbort(() => deps.hub.remove(stream));
-      await stream.writeSSE({ event: 'hello', data: JSON.stringify({ clients: deps.hub.size }) });
+      await stream.writeSSE({ event: 'hello', data: JSON.stringify({ clients: deps.hub.size, build: deps.build?.() ?? null }) });
       while (!stream.aborted && !stream.closed) {
         await stream.sleep(deps.pingIntervalMs ?? 20_000);
         await stream.writeSSE({ event: 'ping', data: '' });
@@ -219,6 +232,33 @@ export function createApp(deps: AppDeps): Hono {
       return await deps.lark.commentImage(token);
     } catch (e) {
       return c.json({ error: (e as Error).message }, 502);
+    }
+  });
+
+  // Issue triage: opens the lark-issue-triage skill in a local Claude tab. Only the record id crosses; the server looks up the rest.
+  const triageError = (c: Context, err: unknown) => c.json({ error: describeError(err) }, err instanceof TriageError ? err.status : 502);
+  app.get('/api/lark/triage', async (c) => {
+    if (!deps.triage) return c.json({ error: 'not available' }, 409);
+    try {
+      return c.json(await deps.triage.status());
+    } catch (err) {
+      return triageError(c, err);
+    }
+  });
+  app.post('/api/lark/triage/:recordId', async (c) => {
+    if (!deps.triage) return c.json({ error: 'not available' }, 409);
+    try {
+      return c.json(await deps.triage.start(c.req.param('recordId') ?? ''));
+    } catch (err) {
+      return triageError(c, err);
+    }
+  });
+  app.post('/api/lark/triage/:recordId/resume', async (c) => {
+    if (!deps.triage) return c.json({ error: 'not available' }, 409);
+    try {
+      return c.json(await deps.triage.resume(c.req.param('recordId') ?? ''));
+    } catch (err) {
+      return triageError(c, err);
     }
   });
 

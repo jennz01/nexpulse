@@ -1,5 +1,5 @@
 import { serveStatic } from 'hono/bun';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { StoreAccounts } from './accounts';
 import { createApp } from './app';
@@ -18,7 +18,8 @@ import { buildGithubSource, buildLarkSource, buildSources, buildStoreSources } f
 import { listTables, listViews } from './sources/lark';
 import { SseHub } from './sse';
 import { Store } from './store';
-import type { CodemagicSnapshot, SourceId } from '../shared/types';
+import { TriageLauncher } from './triage';
+import type { BuildInfo, CodemagicSnapshot, LarkSnapshot, SourceId } from '../shared/types';
 
 const ROOT = resolve(import.meta.dir, '..');
 const log = (line: string) => console.log(`[${new Date().toISOString()}] ${line}`);
@@ -154,6 +155,16 @@ const codemagicActions: CodemagicActions = {
 
 const app = createApp({
   store, scheduler, hub, publicConfig: pub, disabled, codemagic: codemagicActions, accounts, devEmit, auth, codemagicToken, github,
+  // Read on every hello rather than once, so a rebuild without a restart is still reported.
+  build: () => {
+    try {
+      return JSON.parse(readFileSync(resolve(ROOT, 'web', 'dist', 'version.json'), 'utf8')) as BuildInfo;
+    } catch {
+      return null;
+    }
+  },
+  triage: new TriageLauncher(run, () => store.getSnapshot<LarkSnapshot>('lark')?.data?.issues ?? null,
+    { save: (row) => store.saveTriageSession(row), all: () => store.triageSessions() }),
   lark: {
     attachment: (table, recordId, token, name, range) => attachments.response(table, recordId, token, name, range),
     comments: (table, recordId) => comments.forRecord(table, recordId),

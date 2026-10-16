@@ -44,7 +44,15 @@ CREATE TABLE IF NOT EXISTS lark_users (
   open_id TEXT PRIMARY KEY,
   name    TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS triage_sessions (
+  session_id TEXT PRIMARY KEY,
+  record_id  TEXT NOT NULL,
+  started_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS triage_sessions_record ON triage_sessions(record_id, started_at);
 `;
+
+export interface TriageSessionRow { sessionId: string; recordId: string; startedAt: number }
 
 function rowToEvent(r: EventDbRow): Event {
   return {
@@ -181,6 +189,21 @@ export class Store {
 
   countLarkComments(baseToken: string): number {
     return this.db.query<{ n: number }, [string]>('SELECT COUNT(*) AS n FROM lark_comments WHERE base_token = ?').get(baseToken)?.n ?? 0;
+  }
+
+  /** The Claude session the dashboard gave an issue's triage, so it can be resumed later. */
+  saveTriageSession(row: TriageSessionRow): void {
+    this.db
+      .query<never, [string, string, number]>('INSERT OR REPLACE INTO triage_sessions (session_id, record_id, started_at) VALUES (?, ?, ?)')
+      .run(row.sessionId, row.recordId, row.startedAt);
+  }
+
+  /** Every triage session started from the dashboard, oldest first. */
+  triageSessions(): TriageSessionRow[] {
+    return this.db
+      .query<{ session_id: string; record_id: string; started_at: number }, []>('SELECT session_id, record_id, started_at FROM triage_sessions ORDER BY started_at')
+      .all()
+      .map((r) => ({ sessionId: r.session_id, recordId: r.record_id, startedAt: r.started_at }));
   }
 
   /** open_id -> display name, for comment authors and @mentions. */

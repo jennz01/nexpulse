@@ -31,6 +31,8 @@ interface Props {
   /** The record in Lark. */
   url: string;
   label: string;
+  /** Extra controls at the start of the footer, for actions only some tables have. */
+  actions?: ReactNode;
   onClose: () => void;
 }
 
@@ -44,7 +46,7 @@ const extOf = (name: string): string => /\.([a-z0-9]{1,6})$/i.exec(name)?.[1]?.t
  * comment threads. Attachments and comment images all open in the one viewer (images zoom, videos play, PDFs
  * render, other files offer a download), so Escape closes the viewer first, then the dialog.
  */
-export function RecordDialog({ id, tags, fields, texts, files, attachmentHref, idMono = true, table, recordId, url, label, onClose }: Props) {
+export function RecordDialog({ id, tags, fields, texts, files, attachmentHref, idMono = true, table, recordId, url, label, actions, onClose }: Props) {
   const [viewer, setViewer] = useState<Viewer | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -103,6 +105,7 @@ export function RecordDialog({ id, tags, fields, texts, files, attachmentHref, i
           <RecordComments table={table} recordId={recordId} onView={(shots, index) => setViewer({ items: shots, index })} />
         </div>
         <div className="dlg-f">
+          {actions}
           <button className="btn" onClick={onClose}>Close</button>
           <a className="btn primary" href={url} target="_blank" rel="noreferrer"><IconExternal size={12} />Open in Lark</a>
         </div>

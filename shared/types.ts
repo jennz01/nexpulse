@@ -141,6 +141,23 @@ export interface LarkSnapshot {
   issues: { groups: LarkGroup[]; counts: Record<string, number> };
   feedback: { records: LarkRecord[] };
 }
+/** One build of the web UI, stamped by vite.config.ts from git. `id` also carries the build time, so two builds of the same uncommitted tree still differ. */
+export interface BuildInfo {
+  /** v0.<commit count> */
+  version: string;
+  sha: string;
+  /** Built from a tree with uncommitted changes. */
+  dirty: boolean;
+  builtAt: number;
+  id: string;
+}
+/** Issue triage sessions open in Windows Terminal: their record ids, and how many may be open at once. */
+export interface TriageStatus {
+  open: string[];
+  max: number;
+  /** Record id -> when its latest resumable session started (ms), for issues triaged before. */
+  last: Record<string, number>;
+}
 /** A table of a Lark Base, for the Settings picker. */
 export interface LarkTableInfo {
   id: string;

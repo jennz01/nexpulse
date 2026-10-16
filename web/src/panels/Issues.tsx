@@ -9,6 +9,7 @@ import { ageClass, ageLabel, priorityClass, shortDateTime } from './larkFormat';
 import { RecordDialog } from './RecordDialog';
 import { RecordRow } from './RecordRow';
 import { matchesWords, queryWords } from './recordSearch';
+import { TriageButton } from './TriageButton';
 
 interface Props { snapshot: LarkSnapshot | null; events: Event[]; onSee: (ids: number[]) => void; config: PublicConfig; query: string }
 
@@ -82,6 +83,7 @@ function IssueDialog({ record: r, first, onClose }: { record: LarkRecord; first:
   const id = f.ticketId || r.recordId;
   return (
     <RecordDialog id={id} label={`Issue ${id}`} url={r.url} onClose={onClose} table="issues" recordId={r.recordId}
+      actions={<TriageButton recordId={r.recordId} />}
       tags={<>
         {f.status && <span className={`tag ${f.status === first ? 'fail' : 'warn'}`}>{f.status}</span>}
         {f.priority && <span className={`tag ${priorityClass(f.priority)}`}>{f.priority}</span>}

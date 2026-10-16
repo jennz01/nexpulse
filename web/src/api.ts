@@ -1,4 +1,4 @@
-import type { AuthProvider, AuthStatus, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, PlayFoundApp, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult } from '../../shared/types';
+import type { AuthProvider, AuthStatus, BuildInfo, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, PlayFoundApp, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult, TriageStatus } from '../../shared/types';
 
 const POST_HEADERS = { 'x-requested-with': 'dashboard' };
 
@@ -13,9 +13,17 @@ export async function fetchState(): Promise<StateResponse> {
 }
 
 /** Opens the SSE stream. Returns a function that closes it. The browser reconnects on its own; every reconnect re-fires 'live'. */
-export function openEvents(onMessage: (m: SseMessage) => void, onStatus: (s: 'live' | 'offline') => void): () => void {
+export function openEvents(onMessage: (m: SseMessage) => void, onStatus: (s: 'live' | 'offline') => void, onBuild?: (b: BuildInfo | null) => void): () => void {
   const es = new EventSource('/api/events');
-  es.addEventListener('hello', () => onStatus('live'));
+  es.addEventListener('hello', (ev) => {
+    onStatus('live');
+    // A server restart drops the stream, so the hello after a reconnect is where a newly shipped UI shows up.
+    try {
+      onBuild?.((JSON.parse((ev as MessageEvent<string>).data) as { build?: BuildInfo | null }).build ?? null);
+    } catch {
+      onBuild?.(null);
+    }
+  });
   es.addEventListener('update', (ev) => onMessage(JSON.parse((ev as MessageEvent<string>).data) as SseMessage));
   es.onerror = () => onStatus('offline');
   return () => es.close();
@@ -42,6 +50,15 @@ export const attachmentUrl = (table: 'tasks' | 'issues' | 'feedback', recordId: 
 /** One record's comment threads. Read when the dialog opens rather than polled, so they are current at that moment. */
 export const fetchRecordComments = async (table: 'tasks' | 'issues' | 'feedback', recordId: string): Promise<LarkCommentsResponse> =>
   json<LarkCommentsResponse>(await fetch(`/api/lark/comments/${table}/${encodeURIComponent(recordId)}`));
+
+/** Triage sessions open in Windows Terminal, read live from the process list. */
+export const fetchTriage = async (): Promise<TriageStatus> => json<TriageStatus>(await fetch('/api/lark/triage'));
+/** Opens the lark-issue-triage skill for one issue in a new local Claude tab. */
+export const startTriage = async (recordId: string): Promise<TriageStatus> =>
+  json<TriageStatus>(await fetch(`/api/lark/triage/${encodeURIComponent(recordId)}`, { method: 'POST', headers: POST_HEADERS }));
+/** Reopens the issue's last triage session, conversation and all, in a new local Claude tab. */
+export const resumeTriage = async (recordId: string): Promise<TriageStatus> =>
+  json<TriageStatus>(await fetch(`/api/lark/triage/${encodeURIComponent(recordId)}/resume`, { method: 'POST', headers: POST_HEADERS }));
 
 /** An image pasted into a comment; the server downloads and caches it by token. */
 export const commentImageUrl = (token: string): string => `/api/lark/comment-images/${encodeURIComponent(token)}`;
