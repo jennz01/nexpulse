@@ -19,6 +19,7 @@ import { listTables, listViews } from './sources/lark';
 import { SseHub } from './sse';
 import { Store } from './store';
 import { TriageLauncher } from './triage';
+import { readTriageSetup } from './triageSetup';
 import type { BuildInfo, CodemagicSnapshot, LarkSnapshot, SourceId } from '../shared/types';
 
 const ROOT = resolve(import.meta.dir, '..');
@@ -164,7 +165,7 @@ const app = createApp({
     }
   },
   triage: new TriageLauncher(run, () => store.getSnapshot<LarkSnapshot>('lark')?.data?.issues ?? null,
-    { save: (row) => store.saveTriageSession(row), all: () => store.triageSessions() }),
+    { save: (row) => store.saveTriageSession(row), all: () => store.triageSessions() }, readTriageSetup),
   lark: {
     attachment: (table, recordId, token, name, range) => attachments.response(table, recordId, token, name, range),
     comments: (table, recordId) => comments.forRecord(table, recordId),

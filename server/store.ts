@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS triage_sessions (
 CREATE INDEX IF NOT EXISTS triage_sessions_record ON triage_sessions(record_id, started_at);
 `;
 
-export interface TriageSessionRow { sessionId: string; recordId: string; startedAt: number }
+/** `workdir` is the folder the session started in (Claude keeps its history under it); null for rows saved before it was recorded. */
+export interface TriageSessionRow { sessionId: string; recordId: string; startedAt: number; workdir: string | null }
 
 function rowToEvent(r: EventDbRow): Event {
   return {
@@ -75,6 +76,9 @@ export class Store {
     this.db = new Database(path, { create: true });
     if (path !== ':memory:') this.db.exec('PRAGMA journal_mode = WAL');
     this.db.exec(SCHEMA);
+    // Added after the table shipped: older rows keep NULL and resume in the current working folder.
+    const cols = this.db.query<{ name: string }, []>('PRAGMA table_info(triage_sessions)').all();
+    if (!cols.some((c) => c.name === 'workdir')) this.db.exec('ALTER TABLE triage_sessions ADD COLUMN workdir TEXT');
   }
 
   getSnapshot<S = unknown>(source: SourceId): SnapshotRow<S> | null {
@@ -194,16 +198,16 @@ export class Store {
   /** The Claude session the dashboard gave an issue's triage, so it can be resumed later. */
   saveTriageSession(row: TriageSessionRow): void {
     this.db
-      .query<never, [string, string, number]>('INSERT OR REPLACE INTO triage_sessions (session_id, record_id, started_at) VALUES (?, ?, ?)')
-      .run(row.sessionId, row.recordId, row.startedAt);
+      .query<never, [string, string, number, string | null]>('INSERT OR REPLACE INTO triage_sessions (session_id, record_id, started_at, workdir) VALUES (?, ?, ?, ?)')
+      .run(row.sessionId, row.recordId, row.startedAt, row.workdir);
   }
 
   /** Every triage session started from the dashboard, oldest first. */
   triageSessions(): TriageSessionRow[] {
     return this.db
-      .query<{ session_id: string; record_id: string; started_at: number }, []>('SELECT session_id, record_id, started_at FROM triage_sessions ORDER BY started_at')
+      .query<{ session_id: string; record_id: string; started_at: number; workdir: string | null }, []>('SELECT session_id, record_id, started_at, workdir FROM triage_sessions ORDER BY started_at')
       .all()
-      .map((r) => ({ sessionId: r.session_id, recordId: r.record_id, startedAt: r.started_at }));
+      .map((r) => ({ sessionId: r.session_id, recordId: r.record_id, startedAt: r.started_at, workdir: r.workdir }));
   }
 
   /** open_id -> display name, for comment authors and @mentions. */

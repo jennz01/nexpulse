@@ -157,6 +157,25 @@ export interface TriageStatus {
   max: number;
   /** Record id -> when its latest resumable session started (ms), for issues triaged before. */
   last: Record<string, number>;
+  /** Whether the triage skill is installed and set up on this PC. */
+  setup: TriageSetupState;
+  reason: string | null;
+}
+export type TriageSetupState = 'ready' | 'no-skill' | 'not-configured';
+export interface TriageCheck { ok: boolean; detail?: string }
+/** What the triage skill's setup saved on this PC (~/.claude/lark-issue-triage.json), as the Settings card shows it. */
+export interface TriageSetupInfo {
+  setup: TriageSetupState;
+  /** Why it is not ready, in one line, for the dialog and the card. */
+  reason: string | null;
+  skillVersion: string | null;
+  workdir: string | null;
+  /** Repo key -> local path, as saved by the skill's setup. */
+  repos: Record<string, string>;
+  checks: Record<string, TriageCheck | Record<string, TriageCheck>> | null;
+  checkedAt: string | null;
+  /** Version the per-PC file was written with. */
+  configVersion: string | null;
 }
 /** A table of a Lark Base, for the Settings picker. */
 export interface LarkTableInfo {
