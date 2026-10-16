@@ -177,6 +177,11 @@ export interface TriageSetupInfo {
   /** Version the per-PC file was written with. */
   configVersion: string | null;
 }
+/** A fresh run of the skill's setup checks: tools, and every clone found per repo key. Not saved. */
+export interface TriageSetupCheck {
+  tools: Record<string, TriageCheck>;
+  found: Record<string, string[]>;
+}
 /** A table of a Lark Base, for the Settings picker. */
 export interface LarkTableInfo {
   id: string;

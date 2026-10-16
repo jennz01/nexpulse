@@ -3,7 +3,7 @@ import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { LarkTableKey } from './config';
 import { SOURCE_IDS } from '../shared/types';
-import type { AuthProvider, AuthStatus, BuildInfo, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput, TriageStatus } from '../shared/types';
+import type { AuthProvider, AuthStatus, BuildInfo, CodemagicTokenStatus, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, NewEvent, PublicConfig, RepoInfo, SourceId, StateResponse, StoreAccountInput, TriageSetupCheck, TriageSetupInfo, TriageStatus } from '../shared/types';
 import { AccountInputError } from './accounts';
 import type { StoreAccounts } from './accounts';
 import type { Scheduler } from './scheduler';
@@ -64,6 +64,12 @@ export interface TriageActions {
   start(recordId: string): Promise<TriageStatus>;
   /** Reopens the issue's most recent triage session; throws a TriageError when it may not. */
   resume(recordId: string): Promise<TriageStatus>;
+  /** What the skill's setup saved on this PC, read from disk. */
+  setupInfo(): TriageSetupInfo;
+  /** Opens the skill's setup conversation in Windows Terminal. */
+  openSetup(): Promise<void>;
+  /** Runs the skill's `setup.py --detect`; returns its tool checks and the clones it found, without saving them. */
+  checkSetup(): Promise<TriageSetupCheck>;
 }
 
 const isLarkTable = (t: string): t is LarkTableKey => t === 'tasks' || t === 'issues' || t === 'feedback';
@@ -241,6 +247,25 @@ export function createApp(deps: AppDeps): Hono {
     if (!deps.triage) return c.json({ error: 'not available' }, 409);
     try {
       return c.json(await deps.triage.status());
+    } catch (err) {
+      return triageError(c, err);
+    }
+  });
+  // Setting up the skill on this PC; registered before /:recordId so "setup" is never read as a record id.
+  app.get('/api/lark/triage/setup', (c) => (deps.triage ? c.json(deps.triage.setupInfo()) : c.json({ error: 'not available' }, 409)));
+  app.post('/api/lark/triage/setup/run', async (c) => {
+    if (!deps.triage) return c.json({ error: 'not available' }, 409);
+    try {
+      await deps.triage.openSetup();
+      return c.json({ ok: true });
+    } catch (err) {
+      return triageError(c, err);
+    }
+  });
+  app.post('/api/lark/triage/setup/check', async (c) => {
+    if (!deps.triage) return c.json({ error: 'not available' }, 409);
+    try {
+      return c.json(await deps.triage.checkSetup());
     } catch (err) {
       return triageError(c, err);
     }

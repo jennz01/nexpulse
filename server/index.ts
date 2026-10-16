@@ -1,9 +1,9 @@
 import { serveStatic } from 'hono/bun';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { StoreAccounts } from './accounts';
 import { createApp } from './app';
-import type { CodemagicActions, CodemagicTokenActions, GithubActions } from './app';
+import type { CodemagicActions, CodemagicTokenActions, GithubActions, TriageActions } from './app';
 import { LarkAttachments, LarkCommentImages } from './attachments';
 import { AuthManager } from './auth';
 import { maskToken, testCodemagicToken, validateToken, writeEnvValue } from './codemagicToken';
@@ -18,9 +18,9 @@ import { buildGithubSource, buildLarkSource, buildSources, buildStoreSources } f
 import { listTables, listViews } from './sources/lark';
 import { SseHub } from './sse';
 import { Store } from './store';
-import { TriageLauncher } from './triage';
-import { readTriageSetup } from './triageSetup';
-import type { BuildInfo, CodemagicSnapshot, LarkSnapshot, SourceId } from '../shared/types';
+import { TriageError, TriageLauncher } from './triage';
+import { readTriageSetup, SKILL_DIR } from './triageSetup';
+import type { BuildInfo, CodemagicSnapshot, LarkSnapshot, SourceId, TriageSetupCheck } from '../shared/types';
 
 const ROOT = resolve(import.meta.dir, '..');
 const log = (line: string) => console.log(`[${new Date().toISOString()}] ${line}`);
@@ -154,6 +154,24 @@ const codemagicActions: CodemagicActions = {
   artifact: (buildId, index) => (codemagicRef.current ?? noCodemagic()).artifact(buildId, index),
 };
 
+// Issue triage: the launcher for sessions, plus setup actions that go through the skill's own files and scripts.
+const triageLauncher = new TriageLauncher(run, () => store.getSnapshot<LarkSnapshot>('lark')?.data?.issues ?? null,
+  { save: (row) => store.saveTriageSession(row), all: () => store.triageSessions() }, readTriageSetup);
+const triage: TriageActions = {
+  status: () => triageLauncher.status(),
+  start: (id) => triageLauncher.start(id),
+  resume: (id) => triageLauncher.resume(id),
+  setupInfo: readTriageSetup,
+  openSetup: () => triageLauncher.openSetup(),
+  checkSetup: async () => {
+    if (readTriageSetup().setup === 'no-skill') throw new TriageError('Install the lark-issue-triage skill first (Settings › Issue triage)', 409);
+    const res = await run('python', [join(SKILL_DIR, 'scripts', 'setup.py'), '--detect'], { timeoutMs: 60_000 });
+    if (res.code !== 0) throw new TriageError(`setup check failed: ${res.stderr.trim().split('\n').pop() || `exit ${res.code}`}`, 502);
+    const out = JSON.parse(res.stdout) as { checks: TriageSetupCheck['tools']; repos: TriageSetupCheck['found'] };
+    return { tools: out.checks, found: out.repos };
+  },
+};
+
 const app = createApp({
   store, scheduler, hub, publicConfig: pub, disabled, codemagic: codemagicActions, accounts, devEmit, auth, codemagicToken, github,
   // Read on every hello rather than once, so a rebuild without a restart is still reported.
@@ -164,8 +182,7 @@ const app = createApp({
       return null;
     }
   },
-  triage: new TriageLauncher(run, () => store.getSnapshot<LarkSnapshot>('lark')?.data?.issues ?? null,
-    { save: (row) => store.saveTriageSession(row), all: () => store.triageSessions() }, readTriageSetup),
+  triage,
   lark: {
     attachment: (table, recordId, token, name, range) => attachments.response(table, recordId, token, name, range),
     comments: (table, recordId) => comments.forRecord(table, recordId),

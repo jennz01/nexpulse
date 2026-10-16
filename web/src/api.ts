@@ -1,4 +1,4 @@
-import type { AuthProvider, AuthStatus, BuildInfo, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, PlayFoundApp, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult, TriageStatus } from '../../shared/types';
+import type { AuthProvider, AuthStatus, BuildInfo, CodemagicTokenStatus, LarkAttachment, LarkBaseInfo, LarkBaseInput, LarkCommentsResponse, LarkTableInfo, LarkViewInfo, LoginState, PlayFoundApp, RepoInfo, SourceId, SseMessage, StateResponse, StoreAccountInput, StoreAccountView, StoreTestResult, TriageSetupCheck, TriageSetupInfo, TriageStatus } from '../../shared/types';
 
 const POST_HEADERS = { 'x-requested-with': 'dashboard' };
 
@@ -56,6 +56,12 @@ export const fetchTriage = async (): Promise<TriageStatus> => json<TriageStatus>
 /** Opens the lark-issue-triage skill for one issue in a new local Claude tab. */
 export const startTriage = async (recordId: string): Promise<TriageStatus> =>
   json<TriageStatus>(await fetch(`/api/lark/triage/${encodeURIComponent(recordId)}`, { method: 'POST', headers: POST_HEADERS }));
+/** What the triage skill's setup saved on this PC. */
+export const fetchTriageSetup = async (): Promise<TriageSetupInfo> => json<TriageSetupInfo>(await fetch('/api/lark/triage/setup'));
+/** Opens the skill's setup conversation in Windows Terminal. */
+export const runTriageSetup = async (): Promise<void> => { await json(await fetch('/api/lark/triage/setup/run', { method: 'POST', headers: POST_HEADERS })); };
+/** Re-runs the setup checks without saving them. */
+export const checkTriageSetup = async (): Promise<TriageSetupCheck> => json<TriageSetupCheck>(await fetch('/api/lark/triage/setup/check', { method: 'POST', headers: POST_HEADERS }));
 /** Reopens the issue's last triage session, conversation and all, in a new local Claude tab. */
 export const resumeTriage = async (recordId: string): Promise<TriageStatus> =>
   json<TriageStatus>(await fetch(`/api/lark/triage/${encodeURIComponent(recordId)}/resume`, { method: 'POST', headers: POST_HEADERS }));

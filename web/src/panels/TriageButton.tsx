@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { TriageStatus } from '../../../shared/types';
-import { fetchTriage, resumeTriage, startTriage } from '../api';
-import { IconCheck, IconRefresh, IconTerminal } from '../icons';
+import { fetchTriage, resumeTriage, runTriageSetup, startTriage } from '../api';
+import { IconCheck, IconRefresh, IconSettings, IconTerminal } from '../icons';
+import { hashFor } from '../router';
 import { formatDay } from '../time';
 
 /** After a click the buttons stay locked this long, so a double click cannot open two tabs while the first is starting. */
 const LOCK_MS = 4000;
+const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * Opens the lark-issue-triage skill for this issue in a local Claude tab, or resumes the issue's last triage session.
@@ -37,6 +39,25 @@ export function TriageButton({ recordId }: { recordId: string }) {
     }
     setTimeout(() => setBusy(false), LOCK_MS);
   };
+
+  // Not installed or not set up on this PC: say why, and offer setup when the skill is there to run it.
+  if (status && status.setup !== 'ready') {
+    const setup = () => {
+      setBusy(true);
+      setError(null);
+      runTriageSetup().catch((e: Error) => setError(e.message)).finally(() => setTimeout(() => setBusy(false), LOCK_MS));
+    };
+    return (
+      <div className="dlg-f-start">
+        {status.setup === 'not-configured'
+          ? <button className="btn" disabled={busy} onClick={setup} title="Open a Claude session that sets up triage on this PC"><IconSettings size={12} />{busy ? 'Opening…' : 'Set up triage'}</button>
+          : <button className="btn" disabled><IconTerminal size={12} />Triage in Claude</button>}
+        {error
+          ? <span className="error">{error}</span>
+          : <span className="hint">{capitalize(status.reason ?? 'triage is not ready on this PC')}. <a href={hashFor('settings')}>Settings › Issue triage</a></span>}
+      </div>
+    );
+  }
 
   const count = status ? `${status.open.length} of ${status.max} open${full && !open ? ': close one to start another' : ''}` : 'Checking sessions…';
   return (
