@@ -73,11 +73,12 @@ After any config change: `bun run check` to confirm, then `bun run startup:resta
 
 ## Run at startup
 
-`bun run startup:install` (the setup script already did this) registers a Windows scheduled task named **NexPulse** for your user. At every sign-in, 15 seconds after logon, it runs the server hidden, restarts it if it exits, and never times out. It runs only while you are logged in, so `gh` and `lark-cli` keep using your logins. No admin rights are involved.
+`bun run startup:install` (the setup script already did this) registers a Windows scheduled task named **NexPulse** for your user. At every sign-in, 15 seconds after logon, it runs the server hidden, restarts it if it exits, and never times out; unlocking the PC starts it again if it has stopped. It runs only while you are logged in, so `gh` and `lark-cli` keep using your logins. No admin rights are involved.
 
 | Command | What it does |
 |---|---|
 | `bun run startup:status` | task state, last result, whether port 6600 is listening |
+| `bun run startup:doctor` | the dashboard did not come up: finds why and prints the fix |
 | `bun run startup:restart` | restart after `bun run build` or a config edit |
 | `bun run startup:stop` | stop the server (frees port 6600 for `bun run dev`) |
 | `bun run startup:uninstall` | remove the task |
@@ -115,6 +116,7 @@ bun run startup:install
 
 | Symptom | Cause and fix |
 |---|---|
+| The dashboard worked yesterday but not today (nothing at http://127.0.0.1:6600) | Run `bun run startup:doctor` in this folder and follow what it lists. The usual causes: the startup task was never installed (setup run with `-NoStartup`/`-NoBuild`, or the server was started by hand), it was installed by a version from before 21 Sep 2026 (re-run `bun run startup:install`), or the server stopped while the laptop only slept. Send the doctor's output if it is not clear. |
 | `running scripts is disabled on this system` | PowerShell's execution policy. Run the script exactly as shown, with `-ExecutionPolicy Bypass`; nothing is changed permanently. |
 | `bun run build` fails with `does not provide an export named 'styleText'` | Vite was started on a Node.js older than 20.19. The current scripts run Vite and the dev server on Bun (`bun --bun`), so `git pull` and retry; only lark-cli still uses Node. |
 | `winget` is not recognised | Install "App Installer" from the Microsoft Store, or install the tools by hand (Manual steps). |

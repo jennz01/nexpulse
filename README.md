@@ -28,6 +28,7 @@ The stack is Bun + Hono on the server and React + Vite on the web side (no Next.
 1. `bun install`
 2. `cp config/dashboard.config.example.json config/dashboard.config.json`
 3. Fill in the sections below, then `bun run check` until every row says OK.
+4. `bun run build`, then `bun run startup:install` so the dashboard starts by itself (see [Auto-start at login](#auto-start-at-login)). Without this step it only runs while a terminal with `bun run start` stays open, and is gone after a restart.
 
 ### Lark Base
 
@@ -108,14 +109,15 @@ The sidebar switches between three pages, each with its own URL: Home (`#/`, pul
 
 ## Auto-start at login
 
-`bun run build` once, then `bun run startup:install`. That registers a Windows scheduled task named **NexPulse** for your user: at every sign-in (15 s after logon) it pulls the latest code (`git pull --ff-only`, rebuilding if anything changed, skipped over local changes; `startup:install -NoUpdate` turns this off) and then runs `bun server/index.ts` with no window, restarts it if it exits, and never times out. Install also starts it right away, so http://127.0.0.1:6600 is up from then on. No admin rights are needed, and the task runs only while you are logged in, so `gh` and `lark-cli` keep using your logins.
+`bun run build` once, then `bun run startup:install`. That registers a Windows scheduled task named **NexPulse** for your user: at every sign-in (15 s after logon) it pulls the latest code (`git pull --ff-only`, rebuilding if anything changed, skipped over local changes; `startup:install -NoUpdate` turns this off) and then runs `bun server/index.ts` with no window, restarts it if it exits, and never times out. If an update's `bun install` or build fails, it steps back to the code it had and tries again next time. Unlocking the PC starts it again if it has stopped (laptops sleep and lock far more often than they sign out). Install also starts it right away, so http://127.0.0.1:6600 is up from then on; if nothing comes up, install fails in red and points to `startup:doctor`. No admin rights are needed, and the task runs only while you are logged in, so `gh` and `lark-cli` keep using your logins.
 
 | Command | What it does |
 |---|---|
 | `bun run startup:status` | Task state, last result, whether the server is listening |
+| `bun run startup:doctor` | When the dashboard does not come up: checks the task, its triggers and launcher, the account, Bun's path, script policy and the server log, then lists what is wrong and the command that fixes it |
 | `bun run startup:restart` | Pull the latest code (fast-forward only), rebuild if anything changed, then start again; also picks up a hand-edited config. `-NoUpdate` restarts without pulling |
 | `bun run update` | The same pull and rebuild without touching the task, for a PC that runs the server by hand |
-| `bun run startup:stop` | Free port 6600 before `bun run dev`; the task comes back at next logon or with `startup:restart` |
+| `bun run startup:stop` | Free port 6600 before `bun run dev`; the task comes back at the next unlock or logon, or with `startup:restart` |
 | `bun run startup:uninstall` | Remove the task |
 
 Server output goes to `data/server.log`; the previous session's log is kept as `data/server.prev.log`. A PowerShell window may flash for a moment at logon before it hides. The scripts live in `scripts/serve.ps1` (the supervisor) and `scripts/startup.ps1` (task management).

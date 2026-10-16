@@ -9,7 +9,9 @@ start at logon and `bun run startup:restart` runs it before restarting; by hand,
   3. bun run build        only when the pull brought new commits (the served UI lives in web/dist, outside git)
 
 It never throws and never prompts. When git, the network or the build is unhappy it says why and exits 1, and the
-caller carries on with the code already there. Exit 0 means up to date, updated, or deliberately skipped.
+caller carries on with the code already there. If step 2 or 3 fails, the checkout steps back to the commit it had, so
+the server never runs new code without its packages or UI; the next sign-in tries again. Exit 0 means up to date,
+updated, or deliberately skipped.
 #>
 param(
   # Absolute path to bun.exe; startup.ps1 bakes it into the task because the task's PATH may differ from your shell's.
@@ -51,7 +53,7 @@ function Invoke-Bun([string[]] $arguments) {
 }
 
 function Fail([string] $what, $result) {
-  Say "$what failed (exit $($result.code)); the server may run new code with the old UI until this is fixed:"
+  Say "$what failed (exit $($result.code)) after the pull:"
   $result.lines | Select-Object -Last 8 | ForEach-Object { Say "  $_" }
   $script:exitCode = 1
 }
@@ -77,12 +79,26 @@ function Update-Checkout {
 
   # Dependencies and the built UI live outside git, so new commits need both refreshed before the server serves them.
   $r = Invoke-Bun @('install')
-  if ($r.code -ne 0) { Fail 'bun install' $r; return }
+  if ($r.code -ne 0) { Fail 'bun install' $r; Undo-Pull $before; return }
   Say 'bun install ok'
   $r = Invoke-Bun @('run', 'build')
-  if ($r.code -ne 0) { Fail 'bun run build' $r; return }
+  if ($r.code -ne 0) { Fail 'bun run build' $r; Undo-Pull $before; return }
   Say 'bun run build ok'
   Say 'update complete'
+}
+
+function Undo-Pull([string] $before) {
+  # New code without its packages or UI crash-loops the server (a missing import never recovers), so step back to the
+  # commit that was running. Safe: the pull only happens on a checkout with no local changes to tracked files. The next
+  # sign-in or `bun run startup:restart` pulls and tries again.
+  $reset = Invoke-Git @('reset', '--hard', $before)
+  if ($reset.code -ne 0) { Say "could not step back to $(Short $before): $(FirstLine $reset.text)"; return }
+  Say "stepped back to $(Short $before); the update is retried at the next sign-in"
+  # The failed step may have half-written node_modules or emptied web/dist; restore both for the old commit (best effort).
+  $r = Invoke-Bun @('install')
+  if ($r.code -ne 0) { Say "  bun install for $(Short $before) also failed (exit $($r.code)); the server may not start" }
+  $r = Invoke-Bun @('run', 'build')
+  if ($r.code -ne 0) { Say "  bun run build for $(Short $before) also failed (exit $($r.code))" }
 }
 
 # A hidden task must never hang on a credential prompt; the repo is public, so fetching needs none anyway.
