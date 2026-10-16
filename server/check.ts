@@ -17,7 +17,11 @@ export function summarize(id: SourceId, snapshot: unknown): string {
     case 'lark': {
       const s = snapshot as LarkSnapshot;
       const issues = Object.values(s.issues.counts).reduce((a, b) => a + b, 0);
-      return `${s.tasks.total} tasks, ${issues} issues, ${s.feedback.records.length} feedback`;
+      // Every record without a status means fields.status names a column the table does not have (it comes back empty, not as an error).
+      const allEmpty = (groups: { status: string }[] | undefined) => groups?.length === 1 && groups[0]!.status === '';
+      const noStatus = [allEmpty(s.tasks.groups) ? 'tasks' : null, allEmpty(s.issues.groups) ? 'issues' : null].filter(Boolean);
+      const warn = noStatus.length ? `; WARNING: no ${noStatus.join(' or ')} have a status, so lark.tables.<table>.fields.status does not match a column name` : '';
+      return `${s.tasks.total} tasks, ${issues} issues, ${s.feedback.records.length} feedback${warn}`;
     }
     case 'appstore':
       return `${(snapshot as AppStoreSnapshot).apps.length} apps`;

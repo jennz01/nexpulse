@@ -32,7 +32,7 @@
         ],
         "fields": {
           "title": "Task Name",
-          "status": "Status",
+          "status": "Dev Status",
           "pic": "PIC",
           "type": "Task Type",
           "priority": "Priority",
@@ -59,7 +59,7 @@
         "viewId": "vewXXXX",
         "showStatuses": [
           "OPEN",
-          "CHECKING"
+          "CHECKING/FIXING"
         ],
         "fields": {
           "ticketId": "Ticket ID",
@@ -68,7 +68,7 @@
           "priority": "Priority",
           "store": "ERP Store Name / Email",
           "description": "Issue Description",
-          "status": "Status",
+          "status": "Issue Status",
           "reportedBy": "Reported By",
           "taggedPic": "Tagged PIC",
           "modulePic": "Module PIC",

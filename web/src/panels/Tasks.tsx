@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { LarkRecord, LarkSnapshot, PublicConfig } from '../../../shared/types';
 import { attachmentUrl } from '../api';
 import { IconChevronDown, IconChevronRight } from '../icons';
-import { dropMidnight, priorityClass, progressPercent, typeClass } from './larkFormat';
+import { dropMidnight, noStatusAtAll, priorityClass, progressPercent, statusLabel, typeClass } from './larkFormat';
 import { RecordDialog } from './RecordDialog';
 import { matchesWords, queryWords } from './recordSearch';
 
@@ -41,6 +41,9 @@ export function Tasks({ snapshot, config, query }: Props) {
   const dot = (status: string) => (status === config.pendingLaunchStatus ? 'amber' : config.collapsedStatuses.includes(status) ? 'green' : 'blue');
   return (
     <>
+      {noStatusAtAll(snapshot.tasks.groups) && (
+        <div className="note">None of these tasks has a status, so they cannot be grouped. In <code>config\dashboard.config.json</code>, <code>lark.tables.tasks.fields.status</code> must be the exact name of the status column (in the R&amp;D Task table: <code>Dev Status</code>); then run <code>bun run startup:restart</code>.</div>
+      )}
       <div className="rows" role="list">
         {shown.map((g) => {
           const isCollapsed = !words.length && !!collapsed[g.status];
@@ -48,7 +51,7 @@ export function Tasks({ snapshot, config, query }: Props) {
             <div key={g.status}>
               <button className="group" onClick={() => setCollapsed((c) => ({ ...c, [g.status]: !isCollapsed }))} aria-expanded={!isCollapsed}>
                 {isCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
-                <i className={`dot ${dot(g.status)}`} />{g.status} <span className="count">{g.records.length}</span>
+                <i className={`dot ${dot(g.status)}`} />{statusLabel(g.status)} <span className="count">{g.records.length}</span>
                 {isCollapsed && <span className="right">collapsed</span>}
               </button>
               {!isCollapsed && g.records.map((r) => <TaskRow key={r.recordId} r={r} onOpen={() => setOpen(r)} />)}

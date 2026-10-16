@@ -12,6 +12,8 @@ const MAX_PAGES = 100;
 const ID_BATCH = 100;
 /** Contact lookups are chunked smaller so the comma-joined argument stays short. */
 const NAME_BATCH = 50;
+/** One-by-one lookups (the fallback) run this many lark-cli processes at a time. */
+const NAME_PARALLEL = 4;
 /** How many long threads are re-read at once; each one is a lark-cli process. */
 const REPLY_FETCHES = 4;
 
@@ -254,9 +256,11 @@ export class LarkComments {
   }
 
   /**
-   * Display names for comment authors and @mentions. Names are cached for good, and an id the lookup does not
-   * return is cached as itself so a deactivated account is not looked up again on every open. A failed lookup is
-   * logged and swallowed: the comments are still worth showing with raw ids where names would be.
+   * Display names for comment authors and @mentions. The batch search needs contact:user:search, which many Lark apps
+   * do not enable; when it fails, each person is looked up on their own with `+get-user`, which only needs the
+   * contact:user.base:readonly every sign-in has. Names are cached for good. An id a lookup answered without a name is
+   * cached as itself, so a deactivated account is not looked up on every open; an id whose lookup failed is not cached
+   * at all, so it is tried again next time instead of showing as an id until the server restarts.
    */
   private async resolveNames(raw: RawComment[]): Promise<void> {
     const want = new Set<string>();
@@ -269,6 +273,8 @@ export class LarkComments {
     const missing = [...want].filter((id) => !this.names.has(id));
     if (missing.length === 0) return;
     const found = new Map<string, string>();
+    /** Ids a lookup answered for, with or without a name; the rest failed and stay uncached. */
+    const answered = new Set<string>();
     try {
       for (let i = 0; i < missing.length; i += NAME_BATCH) {
         const chunk = missing.slice(i, i + NAME_BATCH);
@@ -280,11 +286,36 @@ export class LarkComments {
           const name = [o.localized_name, o.name].find((v): v is string => typeof v === 'string' && v.trim() !== '');
           if (typeof o.open_id === 'string' && name) found.set(o.open_id, name.trim());
         }
+        for (const id of chunk) answered.add(id);
       }
     } catch (e) {
-      this.log(`lark comments: name lookup failed (${(e as Error).message})`);
+      this.log(`lark comments: batch name lookup failed (${(e as Error).message}); looking names up one by one`);
+      const pending = missing.filter((id) => !answered.has(id));
+      for (let i = 0; i < pending.length; i += NAME_PARALLEL) {
+        await Promise.all(pending.slice(i, i + NAME_PARALLEL).map(async (id) => {
+          const name = await this.getUserName(id);
+          if (name === undefined) return; // the lookup itself failed: try again next time
+          answered.add(id);
+          if (name) found.set(id, name);
+        }));
+      }
     }
-    for (const id of missing) this.names.set(id, found.get(id) ?? id);
+    for (const id of answered) this.names.set(id, found.get(id) ?? id);
     if (found.size > 0) this.store.saveLarkUserNames(found);
+  }
+
+  /** One person's display name: a string when found, null when Lark answered without one, undefined when the call failed. */
+  private async getUserName(id: string): Promise<string | null | undefined> {
+    const res = await this.runner('lark-cli', ['contact', '+get-user', '--as', 'user', '--format', 'json', '--user-id', id], { timeoutMs: 20_000 });
+    if (res.code !== 0) return undefined;
+    try {
+      const json = JSON.parse(res.stdout) as { data?: { user?: Record<string, unknown> } & Record<string, unknown> };
+      const u = (json.data?.user ?? json.data ?? {}) as { name?: unknown; i18n_name?: unknown };
+      const i18n = u.i18n_name && typeof u.i18n_name === 'object' ? Object.values(u.i18n_name as Record<string, unknown>) : [];
+      const name = [u.name, ...i18n].find((v): v is string => typeof v === 'string' && v.trim() !== '');
+      return name ? name.trim() : null;
+    } catch {
+      return undefined;
+    }
   }
 }

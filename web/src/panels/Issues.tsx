@@ -5,7 +5,7 @@ import type { Event, LarkRecord, LarkSnapshot, PublicConfig } from '../../../sha
 import { attachmentUrl } from '../api';
 import { IconChevronDown, IconChevronRight } from '../icons';
 import { unreadItems } from '../state';
-import { ageClass, ageLabel, priorityClass, shortDateTime } from './larkFormat';
+import { ageClass, ageLabel, noStatusAtAll, priorityClass, shortDateTime, statusLabel } from './larkFormat';
 import { RecordDialog } from './RecordDialog';
 import { RecordRow } from './RecordRow';
 import { matchesWords, queryWords } from './recordSearch';
@@ -43,6 +43,9 @@ export function Issues({ snapshot, events, onSee, config, query }: Props) {
   if (words.length && shown.length === 0) return <div className="note">No matches for “{query.trim()}”.</div>;
   return (
     <>
+      {noStatusAtAll(snapshot.issues.groups) && (
+        <div className="note">None of these issues has a status, so they cannot be grouped. In <code>config\dashboard.config.json</code>, <code>lark.tables.issues.fields.status</code> must be the exact name of the status column (in the R&amp;D Issue Tracker: <code>Issue Status</code>); then run <code>bun run startup:restart</code>.</div>
+      )}
       <div className="rows" role="list">
         {shown.map((g) => {
           // A search opens every group that has a hit; the folds come back once the query is cleared.
@@ -51,7 +54,7 @@ export function Issues({ snapshot, events, onSee, config, query }: Props) {
           <div key={g.status}>
             <button className="group" onClick={() => setToggled((c) => ({ ...c, [g.status]: !isCollapsed }))} aria-expanded={!isCollapsed}>
               {isCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
-              <i className={`dot ${tone(g.status)}`} />{g.status} <span className="count">{g.records.length}</span>
+              <i className={`dot ${tone(g.status)}`} />{statusLabel(g.status)} <span className="count">{g.records.length}</span>
               {isCollapsed && <span className="right">collapsed</span>}
             </button>
             {!isCollapsed && [...g.records].sort(byNewest).map((r) => {

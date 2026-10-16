@@ -58,6 +58,12 @@ export const flatText = (text: string): string => text.replace(/\s+/g, ' ').trim
 export const dropMidnight = (value: string | undefined): string | undefined => value?.replace(/ 00:00$/, '');
 
 /** "2026/09/16 09:22" -> "16/09 09:22"; date-only values go through shortDate. */
+/** A status group's label: the status, or "No status" for records that have none. */
+export const statusLabel = (status: string): string => status || 'No status';
+
+/** Every record landed in the no-status group: the configured status column almost certainly does not exist. */
+export const noStatusAtAll = (groups: { status: string }[]): boolean => groups.length === 1 && groups[0]!.status === '';
+
 export function shortDateTime(value: string): string {
   const m = /^(\d{4})\/(\d{2})\/(\d{2})(?: (\d{2}:\d{2}))?/.exec(value);
   if (m) return `${m[3]}/${m[2]}${m[4] ? ` ${m[4]}` : ''}`;
