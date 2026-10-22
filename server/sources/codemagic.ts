@@ -1,6 +1,6 @@
 import { hasFanOut } from '../../shared/releases';
-import { BUILD_TERMINAL_STATUSES, isBuildRunning } from '../../shared/status';
-import type { Build, CodemagicApp, CodemagicSnapshot, NewEvent } from '../../shared/types';
+import { BUILD_TERMINAL_STATUSES, isBuildFailed, isBuildLive, isBuildRunning, isPostFailed } from '../../shared/status';
+import type { Build, CodemagicApp, CodemagicSnapshot, NewEvent, PostProcessing } from '../../shared/types';
 import type { CodemagicActions } from '../app';
 import { SourceError } from './types';
 import type { Source, SourceContext } from './types';
@@ -26,6 +26,8 @@ interface RawBuild {
   /** Per-build environment; a bulk release puts the white-label brand's identity here. */
   dynamicConfig?: { environment?: { variables?: Record<string, string> | null } | null } | null;
   version?: string | null; index?: number | null;
+  /** App Store Connect distribution: what the Codemagic UI calls post-processing. */
+  appStoreConnectTasks?: ({ status?: string; finishedAt?: string | null } | null)[] | null;
 }
 
 /** Codemagic caps one page of /builds at 30 whatever limit is asked for, so paging is the only way past it. */
@@ -70,6 +72,15 @@ function startedBy(v: RawBuild['startedBy']): string | null {
 }
 
 /**
+ * One answer for however many App Store Connect tasks a build has. One still running wins, so the build keeps being
+ * re-read; after that a failure wins, so it is not hidden behind one that went through.
+ */
+function postProcessing(tasks: RawBuild['appStoreConnectTasks']): PostProcessing | null {
+  const list = (tasks ?? []).filter((t) => !!t).map((t) => ({ status: t.status ?? '', finishedAt: t.finishedAt ?? null }));
+  return list.find((t) => !t.finishedAt) ?? list.find((t) => isBuildFailed(t.status)) ?? list[list.length - 1] ?? null;
+}
+
+/**
  * Newest first. A queued build has no startedAt at all, so createdAt leads and startedAt is only a fallback for
  * anything stored before createdAt was recorded; sorting on startedAt alone buries a whole queue under old history.
  */
@@ -104,6 +115,7 @@ export function parseBuilds(raw: unknown, app: AppMeta): Build[] {
         storeId: vars.STORE_ID ?? null,
         bundleId: vars.APP_ID ?? null,
         iconUrl: vars.APP_ICON_URL ?? null,
+        postProcessing: postProcessing(b.appStoreConnectTasks),
         url: buildUrl(b.appId, b._id),
         artifacts: (b.artefacts ?? [])
           .filter((a) => typeof a.url === 'string')
@@ -175,7 +187,7 @@ async function fetchAppBuilds(
   const known = new Map(stored.map((b) => [b.id, b]));
   const alreadySettled = (b: Build): boolean => {
     const before = known.get(b.id);
-    return !!before && !isRunning(before.status);
+    return !!before && !isBuildLive(before);
   };
   const page = async (skip: number) => {
     const raw = await codemagicJson(ctx.fetch, ctx.config.token, `/builds?appId=${encodeURIComponent(app.id)}&limit=${PAGE_SIZE}&skip=${skip}`);
@@ -184,9 +196,14 @@ async function fetchAppBuilds(
 
   // The builds that could have moved since last time are exactly the ones that were not finished then. Codemagic
   // works a run oldest first and adds new builds on top, so those live builds sit at the newest end -- usually
-  // inside the very first page.
-  const wasLive = [...known.values()].filter((b) => isRunning(b.status)).map((b) => b.id);
+  // inside the very first page. A finished build still in post-processing counts: its App Store Connect result
+  // lands a quarter of an hour after the build itself settles.
+  const wasLive = [...known.values()].filter(isBuildLive).map((b) => b.id);
   const fetchedIds = new Set<string>();
+  // Builds stored before post-processing was read would never be re-read to learn it, being settled, so the first
+  // poll after that change reads once down to the depth already held. Every build it parses carries the field, so
+  // this costs one deep poll per app and never recurs.
+  const backfill = stored.some((b) => b.postProcessing === undefined);
 
   const fetched: Build[] = [];
   let more = false;
@@ -196,6 +213,7 @@ async function fetchAppBuilds(
     for (const b of batch) fetchedIds.add(b.id);
     more = hasMore;
     if (batch.length === 0 || !hasMore) break;
+    if (backfill && fetched.length < stored.length) continue;
     // Every build that could have changed has been re-read, and this page reaches builds already held, so there is
     // no gap and nothing below can have moved. This is the case that makes a release poll cheap.
     if (wasLive.every((id) => fetchedIds.has(id)) && batch.some(alreadySettled)) break;
@@ -205,11 +223,14 @@ async function fetchAppBuilds(
   }
 
   let builds = mergeBuilds(fetched, stored);
+  // A stored build the backfill did not reach is one Codemagic no longer lists, so nothing will ever fill it in;
+  // left unset it would trigger the backfill again on every poll.
+  if (backfill) builds = builds.map((b) => (b.postProcessing === undefined ? { ...b, postProcessing: null } : b));
   // `more` describes the page it came from. That is a statement about the whole window only when this poll read to
   // the bottom of it; when the poll stopped early the stored answer is the one that still holds.
   let moreBuilds = fetched.length >= builds.length ? more : storedMore;
 
-  if (moreBuilds && builds.length < MAX_BUILDS && !builds.some((b) => isRunning(b.status))) {
+  if (moreBuilds && builds.length < MAX_BUILDS && !builds.some(isBuildLive)) {
     const { batch, more: hasMore } = await page(builds.length);
     builds = mergeBuilds([...fetched, ...batch], stored);
     moreBuilds = hasMore;
@@ -236,7 +257,7 @@ export async function fetchCodemagic(ctx: SourceContext<CodemagicConfig>, previo
       const before = stored.get(app.id);
       const quiet = !force
         && before != null
-        && !before.builds.some((b) => isRunning(b.status))
+        && !before.builds.some(isBuildLive)
         && now - (before.checkedAt ?? 0) < QUIET_APP_MS;
       if (quiet && before) {
         return { ...app, builds: before.builds, moreBuilds: before.moreBuilds, checkedAt: before.checkedAt };
@@ -268,12 +289,16 @@ export function diffCodemagic(prev: CodemagicSnapshot | null, next: CodemagicSna
     for (const b of app.builds) {
       const p = before.get(b.id);
       if (!p && idTime(b.id) <= (floor.get(app.id) ?? Number.POSITIVE_INFINITY)) continue;
-      const wasRunning = !p || isRunning(p.status);
-      if (!wasRunning || isRunning(b.status)) continue;
+      const settledNow = (!p || isRunning(p.status)) && !isRunning(b.status);
+      // Post-processing fails long after the build has settled, so it is a transition of its own. A build stored
+      // before post-processing was read has no earlier answer to compare with: reading it the first time is not news.
+      const postFailedNow = isPostFailed(b) && (!p || (p.postProcessing !== undefined && !isPostFailed(p)));
       const label = `${app.name} · ${b.workflowName} · ${b.branch}`;
-      if (b.status === 'failed' || b.status === 'timeout') {
+      if (settledNow && isBuildFailed(b.status)) {
         events.push({ source: 'codemagic', kind: 'build.failed', priority: 'high', itemId: b.id, title: `Build failed: ${label}`, url: b.url });
-      } else if (b.status === 'finished' || b.status === 'warning') {
+      } else if (postFailedNow) {
+        events.push({ source: 'codemagic', kind: 'build.post_failed', priority: 'high', itemId: b.id, title: `Post-processing failed: ${label}`, url: b.url });
+      } else if (settledNow && (b.status === 'finished' || b.status === 'warning')) {
         events.push({ source: 'codemagic', kind: 'build.finished', priority: 'normal', itemId: b.id, title: `Build finished: ${label}`, url: b.url });
       }
     }
@@ -286,7 +311,7 @@ export const codemagicSource: Source<CodemagicSnapshot, CodemagicConfig> = {
   defaultIntervalSec: 120,
   fetch: fetchCodemagic,
   diff: diffCodemagic,
-  fastIntervalSec: (s) => (s.apps.some((a) => a.builds.some((b) => isRunning(b.status))) ? 30 : null),
+  fastIntervalSec: (s) => (s.apps.some((a) => a.builds.some(isBuildLive)) ? 30 : null),
 };
 
 export function createCodemagicActions(token: string, getSnapshot: () => CodemagicSnapshot | null, fetchImpl: typeof fetch = fetch): CodemagicActions {

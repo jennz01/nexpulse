@@ -4,7 +4,7 @@
 // same commit hash and its own brand identity, so the run is recoverable from the builds alone and nothing about it
 // needs to be stored or configured.
 
-import { BUILD_TERMINAL_STATUSES, isBuildFailed } from './status';
+import { BUILD_TERMINAL_STATUSES, isBuildFailed, isPostFailed, isPostProcessing } from './status';
 import type { Build, CodemagicApp, CodemagicSnapshot } from './types';
 
 /**
@@ -22,6 +22,10 @@ export interface RunCounts {
   settled: number;
   /** Failed or timed out; a subset of `settled`. */
   failed: number;
+  /** Finished, App Store Connect post-processing still running; a subset of `settled`. */
+  processing: number;
+  /** Finished, App Store Connect post-processing failed; a subset of `settled`, not of `failed`. */
+  postFailed: number;
 }
 
 export interface ReleaseRun {
@@ -66,13 +70,15 @@ export function hasFanOut(builds: Build[]): boolean {
 }
 
 export function countBuilds(builds: Build[]): RunCounts {
-  const counts: RunCounts = { total: builds.length, queued: 0, running: 0, settled: 0, failed: 0 };
+  const counts: RunCounts = { total: builds.length, queued: 0, running: 0, settled: 0, failed: 0, processing: 0, postFailed: 0 };
   for (const b of builds) {
     if (b.status === 'queued') counts.queued++;
     else if (!isTerminal(b.status)) counts.running++;
     else {
       counts.settled++;
       if (isBuildFailed(b.status)) counts.failed++;
+      else if (isPostProcessing(b)) counts.processing++;
+      else if (isPostFailed(b)) counts.postFailed++;
     }
   }
   return counts;

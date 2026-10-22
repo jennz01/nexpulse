@@ -1,8 +1,21 @@
 // shared/status.ts — status vocabularies shared by server sources and the web UI.
 
+import type { Build } from './types';
+
 export const BUILD_TERMINAL_STATUSES: ReadonlySet<string> = new Set(['finished', 'failed', 'canceled', 'timeout', 'skipped', 'warning']);
 export const isBuildRunning = (status: string): boolean => !BUILD_TERMINAL_STATUSES.has(status);
 export const isBuildFailed = (status: string): boolean => status === 'failed' || status === 'timeout';
+
+/**
+ * App Store Connect post-processing is still running. It goes on for a quarter of an hour or more after the build
+ * reports finished, so a build is only done changing once this is over too.
+ */
+export const isPostProcessing = (b: Pick<Build, 'postProcessing'>): boolean => !!b.postProcessing && !b.postProcessing.finishedAt;
+/** The build itself finished, but handing it to App Store Connect did not: Codemagic's yellow "post-processing failed". */
+export const isPostFailed = (b: Pick<Build, 'status' | 'postProcessing'>): boolean =>
+  !isBuildFailed(b.status) && !!b.postProcessing?.finishedAt && isBuildFailed(b.postProcessing.status);
+/** Could still change: on a machine, or finished with post-processing under way. What decides whether a poll re-reads it. */
+export const isBuildLive = (b: Pick<Build, 'status' | 'postProcessing'>): boolean => isBuildRunning(b.status) || isPostProcessing(b);
 
 // ---- App Store Connect appStoreVersion states ----
 export const APPSTORE_LIVE_STATES: ReadonlySet<string> = new Set(['READY_FOR_SALE', 'READY_FOR_DISTRIBUTION']);

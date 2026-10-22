@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { appsOutsideReleases } from '../../../shared/releases';
-import { isBuildFailed, isBuildRunning } from '../../../shared/status';
+import { isBuildFailed, isBuildRunning, isPostFailed, isPostProcessing } from '../../../shared/status';
 import type { Build, BuildArtifact, CodemagicApp, CodemagicSnapshot, Event } from '../../../shared/types';
 import { artifactUrl } from '../api';
 import { IconDownload, IconExternal } from '../icons';
@@ -37,6 +37,19 @@ export function statusClass(status: string): 'run' | 'fail' | 'ok' | 'warn' | 'p
   return 'plain';
 }
 
+/**
+ * The status tag, reading App Store Connect post-processing the way Codemagic does: a finished build whose hand-off
+ * to Apple failed is yellow rather than green, and one still handing off is not finished yet.
+ */
+export function StatusTag({ b }: { b: Build }) {
+  const [cls, text, title] = isPostFailed(b)
+    ? ['warn', 'POST FAILED', 'Finished, but App Store Connect post-processing failed; open the build for the log']
+    : isPostProcessing(b) && !isBuildRunning(b.status)
+      ? ['run', 'PROCESSING', 'Finished; App Store Connect post-processing is still running']
+      : [statusClass(b.status), b.status.toUpperCase(), undefined];
+  return <span className={`tag ${cls}`} title={title}>{cls === 'run' && <i className="dot blue pulse" />}{text}</span>;
+}
+
 const INSTALLABLE_TYPE = /^(apk|aab|ipa)$/i;
 const INSTALLABLE_NAME = /\.(apk|aab|ipa)$/i;
 
@@ -71,9 +84,8 @@ interface RowProps { app: CodemagicApp; b: Build; ids: number[]; onSee: Props['o
 
 function BuildRow({ app, b, ids, onSee, now, full }: RowProps) {
   const [more, setMore] = useState(false);
-  const cls = statusClass(b.status);
   const when = b.startedAt ? (isBuildRunning(b.status) ? `started ${relativeTime(b.startedAt, now)} ago` : `${relativeTime(b.finishedAt ?? b.startedAt, now)} ago`) : '';
-  const status = <span className={`tag ${cls}`}>{cls === 'run' && <i className="dot blue pulse" />}{b.status.toUpperCase()}</span>;
+  const status = <StatusTag b={b} />;
   const { primary, rest } = splitArtifacts(b.artifacts);
   const by = buildBy(b);
   const subtitle = buildSubtitle(b);

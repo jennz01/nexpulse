@@ -7,7 +7,7 @@ import { artifactUrl } from '../api';
 import { IconChevronDown, IconChevronRight, IconDownload, IconExternal } from '../icons';
 import { unreadItems } from '../state';
 import { formatDuration, relativeTime } from '../time';
-import { splitArtifacts, statusClass } from './Builds';
+import { StatusTag, splitArtifacts } from './Builds';
 import { openItem } from './open';
 
 interface Props {
@@ -36,18 +36,20 @@ export function buildWhen(b: Build, now: number): string {
 
 /** "20 queued · 2 building · 2 done", leaving out whatever is zero. */
 export function countsLine(run: ReleaseRun): string {
-  const { queued, running, settled, failed } = run.counts;
+  const { queued, running, settled, failed, processing, postFailed } = run.counts;
+  const done = settled - failed - processing - postFailed;
   return [
     queued > 0 && `${queued} queued`,
     running > 0 && `${running} building`,
-    settled - failed > 0 && `${settled - failed} done`,
+    processing > 0 && `${processing} post-processing`,
+    done > 0 && `${done} done`,
     failed > 0 && `${failed} failed`,
+    postFailed > 0 && `${postFailed} post-processing failed`,
   ].filter(Boolean).join(' · ');
 }
 
 function ReleaseRow({ run, b, ids, onSee, now }: { run: ReleaseRun; b: Build; ids: number[]; onSee: Props['onSee']; now: number }) {
   const [more, setMore] = useState(false);
-  const cls = statusClass(b.status);
   const { primary, rest } = splitArtifacts(b.artifacts);
   const label = buildLabel(b);
   return (
@@ -60,7 +62,7 @@ function ReleaseRow({ run, b, ids, onSee, now }: { run: ReleaseRun; b: Build; id
         <span className="clip" style={{ fontWeight: 500 }} title={label}>{label}</span>
         <span className="meta mono clip" title={b.bundleId ?? undefined}>{b.bundleId ?? ''}</span>
       </span>
-      <span className={`tag ${cls}`}>{cls === 'run' && <i className="dot blue pulse" />}{b.status.toUpperCase()}</span>
+      <StatusTag b={b} />
       <span className="meta mono">{b.storeId ?? ''}</span>
       <span className="meta">{buildWhen(b, now)}</span>
       <span className="meta mono">{formatDuration(b.durationSec)}</span>

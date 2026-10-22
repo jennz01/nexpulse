@@ -96,6 +96,17 @@ export interface Build {
   bundleId?: string | null;
   /** Brand app icon, shown on the Releases page. */
   iconUrl?: string | null;
+  /**
+   * App Store Connect distribution, which Codemagic runs on after the build itself has finished and shows as
+   * "post-processing". Null when the build sends nothing to App Store Connect; missing on builds stored before it was read.
+   */
+  postProcessing?: PostProcessing | null;
+}
+export interface PostProcessing {
+  /** "processing" while it waits on Apple, then "finished" or "failed". */
+  status: string;
+  /** Null while it is still running; the field to trust over the status name. */
+  finishedAt: string | null;
 }
 export interface CodemagicWorkflow {
   id: string;

@@ -1,5 +1,5 @@
 import { releaseRuns } from './releases';
-import { APPSTORE_ATTENTION_STATES, APPSTORE_REJECTED_STATES, PLAY_ATTENTION_STATUSES, humanState, isBuildFailed, isBuildRunning } from './status';
+import { APPSTORE_ATTENTION_STATES, APPSTORE_REJECTED_STATES, PLAY_ATTENTION_STATUSES, humanState, isBuildFailed, isBuildRunning, isPostFailed } from './status';
 import { SOURCE_IDS } from './types';
 import type { AttentionChip, PanelId, PublicConfig, SourceStates } from './types';
 
@@ -45,6 +45,11 @@ export function computeAttention(states: SourceStates, config: Pick<PublicConfig
       if (failed.length) {
         const one = failed.length === 1 ? failed[0] : null;
         chip({ id: `${target}-failed`, text: `${plural(failed.length, 'build')} failed`, detail: one ? `${one.app.name} · ${one.b.brand ?? one.b.workflowName}` : null, tone: 'red', target });
+      }
+      const postFailed = mine.filter(({ b }) => isPostFailed(b) && now - Date.parse(b.postProcessing!.finishedAt!) < DAY_MS);
+      if (postFailed.length) {
+        const one = postFailed.length === 1 ? postFailed[0] : null;
+        chip({ id: `${target}-postfailed`, text: `${plural(postFailed.length, 'build')} failed post-processing`, detail: one ? `${one.app.name} · ${one.b.brand ?? one.b.workflowName}` : null, tone: 'amber', target });
       }
       const running = mine.filter(({ b }) => isBuildRunning(b.status)).length;
       if (running) chip({ id: `${target}-running`, text: `${running} building`, tone: 'grey', target, pulse: true });
